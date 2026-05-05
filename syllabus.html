@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Syllabus | Soilpad</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg: #f9fafb;
+            --card-bg: #ffffff;
+            --text-main: #2d3748;
+            --text-muted: #718096;
+            --primary: #2d5a27;
+            --border: #e2e8f0;
+            --overlay: rgba(0, 0, 0, 0.5);
+            --dropdown-bg: #f0fdf4;
+        }
+
+        body.dark-mode {
+            --bg: #111827;
+            --card-bg: #1f2937;
+            --text-main: #f9fafb;
+            --text-muted: #9ca3af;
+            --border: #374151;
+            --overlay: rgba(0, 0, 0, 0.8);
+            --dropdown-bg: rgba(255, 255, 255, 0.05);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; transition: 0.3s; }
+
+        body { background-color: var(--bg); color: var(--text-main); }
+
+        /* --- Header --- */
+        header { background: var(--card-bg); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 1000; }
+        .navbar { display: flex; justify-content: space-between; align-items: center; max-width: 1200px; margin: 0 auto; padding: 12px 20px; }
+        .logo-container { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+        .logo-icon { width: 38px; height: 38px; background: var(--primary); border-radius: 6px 14px 6px 6px; display: flex; justify-content: center; align-items: center; }
+        .icon-s { color: white; font-weight: 800; font-size: 22px; }
+        .logo-text { font-size: 26px; font-weight: 700; }
+        .brand-soil { color: var(--primary); }
+        .brand-pad { color: var(--text-muted); font-weight: 400; }
+        
+        /* Actions in Header */
+        .header-actions { display: flex; gap: 12px; align-items: center; }
+        .nav-btn { background: var(--bg); border: 1px solid var(--border); color: var(--text-main); width: 40px; height: 40px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+
+        /* --- Page Content --- */
+        .container { max-width: 800px; margin: 80px auto; text-align: center; padding: 20px; }
+        .btn-open { background: var(--primary); color: white; padding: 15px 40px; border: none; border-radius: 12px; font-size: 1.1rem; font-weight: 600; cursor: pointer; box-shadow: 0 10px 15px rgba(45, 90, 39, 0.2); }
+
+        /* --- Modal System --- */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--overlay); display: none; justify-content: center; align-items: center; z-index: 2000; backdrop-filter: blur(4px); }
+        .modal-content { background: var(--card-bg); width: 90%; max-width: 550px; border-radius: 20px; padding: 25px; position: relative; max-height: 90vh; overflow-y: auto; }
+        .close-btn { position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 1.5rem; color: var(--text-main); cursor: pointer; }
+        
+        /* Dropdown/Accordion Styles */
+        .year-card { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 10px; overflow: hidden; cursor: pointer; }
+        .year-header { padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; font-weight: 700; }
+        .chevron { transition: 0.3s; color: var(--text-muted); }
+        
+        .semester-box { max-height: 0; overflow: hidden; background: var(--dropdown-bg); transition: max-height 0.3s ease; }
+        .year-card.active .semester-box { max-height: 150px; border-top: 1px solid var(--border); }
+        .year-card.active .chevron { transform: rotate(180deg); color: var(--primary); }
+
+        .sem-list { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+        .sem-btn { background: var(--card-bg); border: 1px solid var(--border); padding: 10px 15px; border-radius: 8px; text-align: left; cursor: pointer; font-weight: 600; color: var(--primary); }
+        .sem-btn:hover { background: var(--primary); color: white; }
+
+        .selection-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .option-card { background: var(--bg); border: 1px solid var(--border); padding: 15px; border-radius: 12px; cursor: pointer; text-align: center; }
+        .option-card i { font-size: 1.5rem; color: var(--primary); margin-bottom: 8px; display: block; }
+
+        #bsc-view { display: none; }
+        .back-link { color: var(--primary); cursor: pointer; display: inline-block; margin-bottom: 15px; font-weight: 600; }
+
+        /* --- Bookmark Popup UI --- */
+        .bookmark-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); display: none; z-index: 3000; }
+        .bookmark-popup { position: fixed; bottom: 0; left: 0; width: 100%; height: 60%; background: var(--card-bg); border-radius: 25px 25px 0 0; padding: 20px; transform: translateY(100%); transition: transform 0.4s ease; display: flex; flex-direction: column; z-index: 3001; }
+        .bookmark-popup.active { transform: translateY(0); }
+        .pop-tabs { display: flex; background: var(--bg); padding: 4px; border-radius: 10px; margin: 15px 0; }
+        .tab { flex: 1; padding: 10px; border: none; background: none; cursor: pointer; border-radius: 8px; font-weight: 700; color: var(--text-muted); }
+        .tab.active { background: var(--card-bg); color: var(--primary); box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .pop-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+        .bookmark-item { display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--bg); border-radius: 10px; cursor: pointer; text-decoration: none; color: inherit; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <nav class="navbar">
+            <div class="logo-container" onclick="window.location.href='index'">
+                <div class="logo-icon"><span class="icon-s">S</span></div>
+                <div class="logo-text"><span class="brand-soil">Soil</span><span class="brand-pad">pad</span></div>
+            </div>
+            <div class="header-actions">
+                <button class="nav-btn" onclick="toggleBookmarkPopup(true)"><i class="fas fa-bookmark"></i></button>
+                <button class="nav-btn" id="theme-btn"><i class="fas fa-moon"></i></button>
+            </div>
+        </nav>
+    </header>
+
+    <div class="container">
+        <h1>Syllabus Repository</h1>
+        <p style="color: var(--text-muted); margin: 15px 0;">Find your curriculum in just two clicks.</p>
+        <button class="btn-open" onclick="openModal()">Get Syllabus</button>
+    </div>
+
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal-content">
+            <button class="close-btn" onclick="closeModal()">&times;</button>
+            <div id="cat-view">
+                <h3 style="margin-bottom: 20px; text-align: center;">Select Category</h3>
+                <div class="selection-grid">
+                    <div class="option-card" onclick="showBsc()">
+                        <i class="fas fa-graduation-cap"></i>
+                        <span>B.Sc Agriculture</span>
+                    </div>
+                    <div class="option-card" onclick="redirectTo('supervisor')">
+                        <i class="fas fa-user-tie"></i>
+                        <span>Agri. Supervisor</span>
+                    </div>
+                    <div class="option-card" onclick="redirectTo('JET')">
+                        <i class="fas fa-pen-nib"></i>
+                        <span>JET Exam</span>
+                    </div>
+                    <div class="option-card" onclick="redirectTo('cuet')">
+                        <i class="fas fa-university"></i>
+                        <span>CUET Exam</span>
+                    </div>
+                </div>
+            </div>
+            <div id="bsc-view">
+                <span class="back-link" onclick="showCat()"><i class="fas fa-arrow-left"></i> Back</span>
+                <h3 style="margin-bottom: 15px;">B.Sc Agriculture</h3>
+                <div class="year-card" onclick="toggleYear(this)">
+                    <div class="year-header"><span>First Year</span> <i class="fas fa-chevron-down chevron"></i></div>
+                    <div class="semester-box">
+                        <div class="sem-list">
+                            <div class="sem-btn" onclick="redirectTo('1st')">First Semester</div>
+                            <div class="sem-btn" onclick="redirectTo('2nd')">Second Semester</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="year-card" onclick="toggleYear(this)">
+                    <div class="year-header"><span>Second Year</span> <i class="fas fa-chevron-down chevron"></i></div>
+                    <div class="semester-box">
+                        <div class="sem-list">
+                            <div class="sem-btn" onclick="redirectTo('3rd')">First Semester</div>
+                            <div class="sem-btn" onclick="redirectTo('4th')">Second Semester</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="year-card" onclick="toggleYear(this)">
+                    <div class="year-header"><span>Third Year</span> <i class="fas fa-chevron-down chevron"></i></div>
+                    <div class="semester-box">
+                        <div class="sem-list">
+                            <div class="sem-btn" onclick="redirectTo('5th')">First Semester</div>
+                            <div class="sem-btn" onclick="redirectTo('6th')">Second Semester</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="year-card" onclick="toggleYear(this)">
+                    <div class="year-header"><span>Fourth Year</span> <i class="fas fa-chevron-down chevron"></i></div>
+                    <div class="semester-box">
+                        <div class="sem-list">
+                            <div class="sem-btn" onclick="redirectTo('7th')">First Semester</div>
+                            <div class="sem-btn" onclick="redirectTo('8th')">Second Semester</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bookmark-overlay" id="bookmarkOverlay" onclick="toggleBookmarkPopup(false)">
+        <div class="bookmark-popup" id="bPopup" onclick="event.stopPropagation()">
+            <div style="display:flex; justify-content:space-between; align-items:center">
+                <h3 style="font-size: 1.2rem;">My Bookmarks</h3>
+                <i class="fas fa-times" onclick="toggleBookmarkPopup(false)" style="font-size:22px; cursor:pointer; color: var(--text-muted);"></i>
+            </div>
+            <div class="pop-tabs">
+                <button class="tab active" id="tabDir" onclick="renderBookmarks('dir')">Folders</button>
+                <button class="tab" id="tabFile" onclick="renderBookmarks('file')">Files</button>
+            </div>
+            <div id="popList" class="pop-list"></div>
+        </div>
+    </div>
+
+    <script>
+        const modal = document.getElementById('modalOverlay');
+        const themeBtn = document.getElementById('theme-btn');
+        const body = document.body;
+        const ROOT = "notes";
+
+        function openModal() { modal.style.display = 'flex'; }
+        function closeModal() { modal.style.display = 'none'; showCat(); }
+        function showBsc() { document.getElementById('cat-view').style.display = 'none'; document.getElementById('bsc-view').style.display = 'block'; }
+        function showCat() { document.getElementById('cat-view').style.display = 'block'; document.getElementById('bsc-view').style.display = 'none'; }
+        
+        function toggleYear(card) {
+            document.querySelectorAll('.year-card').forEach(c => { if(c !== card) c.classList.remove('active'); });
+            card.classList.toggle('active');
+        }
+
+        function redirectTo(val) {
+            event.stopPropagation();
+            window.location.href = `open?p=syllabus/${val}.pdf`;
+        }
+
+        // Theme Toggle Logic
+        themeBtn.addEventListener('click', () => {
+            body.classList.toggle('dark-mode');
+            const icon = themeBtn.querySelector('i');
+            icon.className = body.classList.contains('dark-mode') ? 'fas fa-sun' : 'fas fa-moon';
+            localStorage.setItem('theme', body.classList.contains('dark-mode') ? 'dark' : 'light');
+        });
+
+        if (localStorage.getItem('theme') === 'dark') {
+            body.classList.add('dark-mode');
+            themeBtn.querySelector('i').className = 'fas fa-sun';
+        }
+
+        // Bookmark Logic
+        function toggleBookmarkPopup(show) {
+            const overlay = document.getElementById('bookmarkOverlay');
+            const pop = document.getElementById('bPopup');
+            if(show) {
+                overlay.style.display = 'block';
+                setTimeout(() => pop.classList.add('active'), 10);
+                renderBookmarks('dir');
+            } else {
+                pop.classList.remove('active');
+                setTimeout(() => overlay.style.display = 'none', 400);
+            }
+        }
+
+        function renderBookmarks(type) {
+            document.getElementById('tabDir').classList.toggle('active', type==='dir');
+            document.getElementById('tabFile').classList.toggle('active', type==='file');
+            
+            const list = document.getElementById('popList');
+            const bookmarks = JSON.parse(localStorage.getItem('sp_fav')) || [];
+            
+            const filt = bookmarks.filter(b => b.type === (type==='dir' ? 'dir' : 'file') || (type==='file' && b.type==='blob'));
+            
+            if(filt.length === 0) {
+                list.innerHTML = `<p style="text-align:center; padding:20px; color:var(--text-muted)">No bookmarks yet.</p>`;
+                return;
+            }
+
+            list.innerHTML = filt.map(b => {
+                const iconClass = b.type === 'dir' ? 'fa-folder' : 'fa-file-pdf';
+                const cleanName = b.name.replace(/\.(pdf|html)$/i, '');
+                const targetUrl = b.type === 'dir' ? `files?sel=${b.path.replace(ROOT+'/','')}` : `open?p=${b.path}`;
+                
+                return `
+                <a href="${targetUrl}" class="bookmark-item">
+                    <i class="fas ${iconClass}" style="color:var(--primary); font-size: 1.2rem;"></i>
+                    <span style="font-weight: 600;">${cleanName}</span>
+                </a>`;
+            }).join('');
+        }
+    </script>
+</body>
+</html>
