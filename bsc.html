@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>B.Sc Agriculture | Soilpad</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg: #f9fafb;
+            --card-bg: #ffffff;
+            --text-main: #2d3748;
+            --text-muted: #718096;
+            --primary: #2d5a27;
+            --border: #e2e8f0;
+            --hero-bg: rgba(45, 90, 39, 0.05);
+            --info-bg: #fff3cd;
+            --info-text: #856404;
+        }
+
+        body.dark-mode {
+            --bg: #111827;
+            --card-bg: #1f2937;
+            --text-main: #f9fafb;
+            --text-muted: #9ca3af;
+            --border: #374151;
+            --hero-bg: rgba(255, 255, 255, 0.03);
+            --info-bg: #2d3748;
+            --info-text: #fbbf24;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; transition: background 0.3s ease, color 0.3s ease; }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            line-height: 1.6;
+        }
+
+        /* --- Default Header --- */
+        header {
+            background: var(--card-bg);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 12px 20px;
+        }
+
+        .logo-container { display: flex; align-items: center; gap: 10px; text-decoration: none; cursor: pointer; }
+        .logo-icon {
+            width: 38px; height: 38px; background: var(--primary);
+            border-radius: 6px 14px 6px 6px; display: flex;
+            justify-content: center; align-items: center;
+        }
+        .icon-s { color: white; font-weight: 800; font-size: 22px; }
+        .logo-text { font-size: 26px; font-weight: 700; }
+        .brand-soil { color: var(--primary); }
+        .brand-pad { color: var(--text-muted); font-weight: 400; }
+
+        .header-actions { display: flex; gap: 12px; align-items: center; }
+
+        .nav-btn {
+            background: var(--bg); border: 1px solid var(--border);
+            color: var(--text-main); width: 40px; height: 40px;
+            border-radius: 50%; cursor: pointer; display: flex;
+            align-items: center; justify-content: center; font-size: 1.1rem;
+        }
+
+        /* --- Content Layout --- */
+        .container { max-width: 600px; margin: 40px auto; padding: 0 20px; }
+
+        .info-line { 
+            background: var(--info-bg); color: var(--info-text); 
+            padding: 12px; border-radius: 10px; font-size: 0.9rem; 
+            margin-bottom: 25px; text-align: center; border: 1px solid var(--border);
+        }
+
+        .years-container { display: flex; flex-direction: column; gap: 15px; }
+
+        .year-card {
+            background: var(--card-bg); border: 1px solid var(--border);
+            border-radius: 16px; overflow: hidden; cursor: pointer;
+        }
+
+        .year-header {
+            padding: 20px; display: flex; align-items: center; justify-content: space-between;
+        }
+
+        .year-info { display: flex; align-items: center; gap: 15px; }
+        .icon-box {
+            width: 40px; height: 40px; background: rgba(45, 90, 39, 0.1);
+            color: var(--primary); border-radius: 10px;
+            display: flex; justify-content: center; align-items: center;
+        }
+
+        .year-title { font-weight: 700; font-size: 1.1rem; }
+        .chevron { transition: 0.3s; color: var(--text-muted); }
+
+        /* --- Dropdown Logic --- */
+        .semester-box {
+            max-height: 0; overflow: hidden; transition: max-height 0.4s ease;
+            background: var(--hero-bg);
+        }
+
+        .year-card.active .semester-box { max-height: 200px; border-top: 1px solid var(--border); }
+        .year-card.active .chevron { transform: rotate(180deg); color: var(--primary); }
+
+        .sem-list { padding: 15px; display: flex; flex-direction: column; gap: 10px; }
+
+        .sem-btn {
+            background: var(--card-bg); border: 1px solid var(--border);
+            padding: 12px 20px; border-radius: 10px; text-align: left;
+            font-weight: 600; color: var(--primary); cursor: pointer;
+        }
+
+        .sem-btn:hover { background: var(--primary); color: white; }
+
+        /* --- Bookmark Popup UI --- */
+        .overlay { 
+            position: fixed; inset: 0; background: rgba(0,0,0,0.5); 
+            backdrop-filter: blur(4px); display: none; z-index: 2000; 
+        }
+        .bookmark-popup { 
+            position: fixed; bottom: 0; left: 0; width: 100%; height: 60%; 
+            background: var(--card-bg); border-radius: 25px 25px 0 0; 
+            padding: 20px; transform: translateY(100%); transition: transform 0.4s ease;
+            display: flex; flex-direction: column; z-index: 2001;
+        }
+        .bookmark-popup.active { transform: translateY(0); }
+        .pop-tabs { display: flex; background: var(--bg); padding: 4px; border-radius: 10px; margin: 15px 0; }
+        .tab { flex: 1; padding: 10px; border: none; background: none; cursor: pointer; border-radius: 8px; font-weight: 700; color: var(--text-muted); }
+        .tab.active { background: var(--card-bg); color: var(--primary); box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .pop-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+        .bookmark-item { display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--bg); border-radius: 10px; cursor: pointer; text-decoration: none; color: inherit; }
+
+        footer { text-align: center; padding: 40px; color: var(--text-muted); font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <nav class="navbar">
+            <div class="logo-container" onclick="window.location.href='index'">
+                <div class="logo-icon"><span class="icon-s">S</span></div>
+                <div class="logo-text"><span class="brand-soil">Soil</span><span class="brand-pad">pad</span></div>
+            </div>
+            <div class="header-actions">
+                <button class="nav-btn" onclick="toggleBookmarkPopup(true)"><i class="fas fa-bookmark"></i></button>
+                <button class="nav-btn" id="theme-btn"><i class="fas fa-moon"></i></button>
+            </div>
+        </nav>
+    </header>
+
+    <div class="container">
+        <div class="info-line">
+            <i class="fas fa-info-circle"></i> Select your year and semester to view the notes list.
+        </div>
+
+        <div class="years-container">
+            <div class="year-card" onclick="toggleCard(this)">
+                <div class="year-header">
+                    <div class="year-info">
+                        <div class="icon-box"><i class="fas fa-1"></i></div>
+                        <span class="year-title">First Year</span>
+                    </div>
+                    <i class="fas fa-chevron-down chevron"></i>
+                </div>
+                <div class="semester-box">
+                    <div class="sem-list">
+                        <div class="sem-btn" onclick="goToFiles('1st')">First Semester</div>
+                        <div class="sem-btn" onclick="goToFiles('2nd')">Second Semester</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="year-card" onclick="toggleCard(this)">
+                <div class="year-header">
+                    <div class="year-info">
+                        <div class="icon-box"><i class="fas fa-2"></i></div>
+                        <span class="year-title">Second Year</span>
+                    </div>
+                    <i class="fas fa-chevron-down chevron"></i>
+                </div>
+                <div class="semester-box">
+                    <div class="sem-list">
+                        <div class="sem-btn" onclick="goToFiles('3rd')">First Semester</div>
+                        <div class="sem-btn" onclick="goToFiles('4th')">Second Semester</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="year-card" onclick="toggleCard(this)">
+                <div class="year-header">
+                    <div class="year-info">
+                        <div class="icon-box"><i class="fas fa-3"></i></div>
+                        <span class="year-title">Third Year</span>
+                    </div>
+                    <i class="fas fa-chevron-down chevron"></i>
+                </div>
+                <div class="semester-box">
+                    <div class="sem-list">
+                        <div class="sem-btn" onclick="goToFiles('5th')">First Semester</div>
+                        <div class="sem-btn" onclick="goToFiles('6th')">Second Semester</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="year-card" onclick="toggleCard(this)">
+                <div class="year-header">
+                    <div class="year-info">
+                        <div class="icon-box"><i class="fas fa-4"></i></div>
+                        <span class="year-title">Fourth Year</span>
+                    </div>
+                    <i class="fas fa-chevron-down chevron"></i>
+                </div>
+                <div class="semester-box">
+                    <div class="sem-list">
+                        <div class="sem-btn" onclick="goToFiles('7th')">First Semester</div>
+                        <div class="sem-btn" onclick="goToFiles('8th')">Second Semester</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="overlay" id="overlay" onclick="toggleBookmarkPopup(false)">
+        <div class="bookmark-popup" id="bPopup" onclick="event.stopPropagation()">
+            <div style="display:flex; justify-content:space-between; align-items:center">
+                <h3 style="font-size: 1.2rem;">My Bookmarks</h3>
+                <i class="fas fa-times" onclick="toggleBookmarkPopup(false)" style="font-size:22px; cursor:pointer; color: var(--text-muted);"></i>
+            </div>
+            <div class="pop-tabs">
+                <button class="tab active" id="tabDir" onclick="renderBookmarks('dir')">Folders</button>
+                <button class="tab" id="tabFile" onclick="renderBookmarks('file')">Files</button>
+            </div>
+            <div id="popList" class="pop-list"></div>
+        </div>
+    </div>
+
+    <footer>&copy; 2026 Soilpad</footer>
+
+    <script>
+        const ROOT = "notes";
+
+        // Toggle Card
+        function toggleCard(card) {
+            document.querySelectorAll('.year-card').forEach(c => {
+                if (c !== card) c.classList.remove('active');
+            });
+            card.classList.toggle('active');
+        }
+
+        // Redirect
+        function goToFiles(sem) {
+            event.stopPropagation();
+            window.location.href = `files?sel=bsc/${sem}`;
+        }
+
+        // Dark Mode Logic
+        const themeBtn = document.getElementById('theme-btn');
+        const body = document.body;
+        const icon = themeBtn.querySelector('i');
+
+        if (localStorage.getItem('theme') === 'dark') {
+            body.classList.add('dark-mode');
+            icon.classList.replace('fa-moon', 'fa-sun');
+        }
+
+        themeBtn.addEventListener('click', () => {
+            body.classList.toggle('dark-mode');
+            if (body.classList.contains('dark-mode')) {
+                icon.classList.replace('fa-moon', 'fa-sun');
+                localStorage.setItem('theme', 'dark');
+            } else {
+                icon.classList.replace('fa-sun', 'fa-moon');
+                localStorage.setItem('theme', 'light');
+            }
+        });
+
+        // Bookmark Logic
+        function toggleBookmarkPopup(show) {
+            const overlay = document.getElementById('overlay');
+            const pop = document.getElementById('bPopup');
+            if(show) {
+                overlay.style.display = 'block';
+                setTimeout(() => pop.classList.add('active'), 10);
+                renderBookmarks('dir');
+            } else {
+                pop.classList.remove('active');
+                setTimeout(() => overlay.style.display = 'none', 400);
+            }
+        }
+
+        function renderBookmarks(type) {
+            document.getElementById('tabDir').classList.toggle('active', type==='dir');
+            document.getElementById('tabFile').classList.toggle('active', type==='file');
+            
+            const list = document.getElementById('popList');
+            const bookmarks = JSON.parse(localStorage.getItem('sp_fav')) || [];
+            
+            const filt = bookmarks.filter(b => b.type === (type==='dir' ? 'dir' : 'file') || (type==='file' && b.type==='blob'));
+            
+            if(filt.length === 0) {
+                list.innerHTML = `<p style="text-align:center; padding:20px; color:var(--text-muted)">No bookmarks yet.</p>`;
+                return;
+            }
+
+            list.innerHTML = filt.map(b => {
+                const iconClass = b.type === 'dir' ? 'fa-folder' : 'fa-file-pdf';
+                const cleanName = b.name.replace(/\.(pdf|html)$/i, '');
+                const targetUrl = b.type === 'dir' ? `files?sel=${b.path.replace(ROOT+'/','')}` : `open?file=${b.path}`;
+                
+                return `
+                <a href="${targetUrl}" class="bookmark-item">
+                    <i class="fas ${iconClass}" style="color:var(--primary); font-size: 1.2rem;"></i>
+                    <span class="name" style="font-weight: 600;">${cleanName}</span>
+                </a>`;
+            }).join('');
+        }
+    </script>
+</body>
+</html>
