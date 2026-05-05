@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <title>Viewer | Soilpad</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    <style>
+        :root {
+            --bg: #f3f4f6; --card: #ffffff; --text: #1f2937; --muted: #6b7280;
+            --primary: #2d5a27; --border: #e5e7eb; --accent: #fbbf24;
+            --glass: rgba(255, 255, 255, 0.9);
+        }
+        body.dark-mode {
+            --bg: #111827; --card: #1f2937; --text: #f9fafb; --border: #374151; --glass: rgba(31, 41, 55, 0.9);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; transition: background 0.3s; }
+        body { background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+
+        header { background: var(--card); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 1000; }
+        .navbar { display: flex; justify-content: space-between; align-items: center; max-width: 1000px; margin: 0 auto; padding: 10px 15px; }
+        .logo { font-size: 20px; font-weight: 800; color: var(--primary); text-decoration: none; display: flex; align-items: center; gap: 8px; }
+        .logo-box { width: 30px; height: 30px; background: var(--primary); color: white; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+        .nav-actions { display: flex; gap: 10px; }
+        .nav-btn { width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--border); background: var(--bg); color: var(--text); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+        .content-wrapper { max-width: 900px; margin: 15px auto; padding: 0 15px; }
+        .file-card { background: var(--card); border-radius: 16px; padding: 15px 20px; border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        #fileName { font-weight: 700; font-size: 1.1rem; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; max-width: 60%; }
+
+        .card-tools { display: flex; gap: 15px; }
+        .tool-icon { font-size: 1.2rem; cursor: pointer; color: var(--muted); }
+        .tool-icon.active { color: var(--accent); }
+
+        #viewerContainer { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+        .doc-page { 
+            background: white; border: 4px solid var(--primary); border-radius: 12px; 
+            width: 100%; max-width: 800px; cursor: zoom-in; overflow: hidden;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            opacity: 0; transform: translateY(10px); animation: pageIn 0.3s forwards;
+        }
+        @keyframes pageIn { to { opacity: 1; transform: translateY(0); } }
+        
+        .page-line { width: 60%; height: 2px; background: var(--primary); margin: 10px 0; opacity: 0.1; }
+        canvas { width: 100% !important; height: auto !important; display: block; }
+
+        /* Full Screen Zoom Overlay */
+        .zoom-overlay { position: fixed; inset: 0; background: #000; z-index: 5000; display: none; overflow: auto; cursor: zoom-out; }
+        .zoom-content { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 10px; }
+        .zoom-overlay canvas { max-width: 100%; height: auto !important; border-radius: 4px; }
+
+        #loadingOverlay {
+            position: fixed; inset: 0; background: var(--bg); z-index: 9999;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .loading-box { text-align: center; max-width: 300px; }
+        .loading-icon { font-size: 3rem; color: var(--primary); margin-bottom: 20px; animation: float 2s infinite ease-in-out; }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }
+        
+        /* Page-by-page progress bar */
+        .page-loader { width: 80%; max-width: 300px; height: 3px; background: var(--border); border-radius: 10px; margin: 10px 0; overflow: hidden; }
+        .page-loader-bar { width: 30%; height: 100%; background: var(--primary); animation: slide 1.5s infinite linear; }
+        @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
+
+        .explore-card { 
+            display: none; background: var(--card); border: 1px solid var(--border); 
+            padding: 20px; border-radius: 20px; margin: 40px 0; 
+            align-items: center; gap: 15px; cursor: pointer; position: relative;
+        }
+        .explore-card::before { content: ''; position: absolute; left: 0; top: 0; height: 100%; width: 6px; background: var(--primary); }
+        .explore-icon { width: 45px; height: 45px; background: var(--primary); color: white; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-left: auto; }
+
+        .custom-pop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 4000; backdrop-filter: blur(4px); }
+        .pop-box { background: var(--card); padding: 30px; border-radius: 24px; text-align: center; max-width: 320px; width: 90%; }
+        .pop-btn { background: var(--primary); color: white; border: none; padding: 12px; border-radius: 12px; margin-top: 20px; cursor: pointer; font-weight: 700; width: 100%; }
+
+        /* Coming Soon Styles */
+        .sp-overlay { position: fixed; inset:0; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); display:flex; justify-content:center; align-items:center; z-index:99999; opacity:0; transition:0.3s ease; }
+        .sp-card { background: var(--card); padding: 40px 30px; border-radius: 24px; max-width: 350px; text-align: center; transform: scale(0.8); transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+
+        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; z-index: 3000; }
+        .bookmark-popup { position: fixed; bottom: 0; left: 0; width: 100%; height: 60%; background: var(--card); border-radius: 25px 25px 0 0; padding: 20px; transform: translateY(100%); transition: 0.4s ease; z-index: 3001; display: flex; flex-direction: column; }
+        .bookmark-popup.active { transform: translateY(0); }
+        .pop-list { flex: 1; overflow-y: auto; margin-top: 15px; display: flex; flex-direction: column; gap: 10px; }
+
+        .study-tag-bottom { position: fixed; bottom: 20px; right: 20px; font-size: 11px; font-weight: 800; color: var(--primary); display: flex; align-items: center; gap: 6px; background: var(--glass); padding: 8px 14px; border-radius: 50px; border: 1px solid var(--primary); z-index: 500; }
+        footer { text-align: center; padding: 50px 20px 100px; color: var(--muted); font-size: 13px; }
+        #loadMoreBtn { background: var(--primary); color: white; border: none; padding: 14px 35px; border-radius: 50px; font-weight: 700; cursor: pointer; margin: 30px 0; display: none; }
+    </style>
+</head>
+<body>
+
+<div id="loadingOverlay">
+    <div class="loading-box">
+        <div class="loading-icon"><i class="fas fa-leaf"></i></div>
+        <h2 id="loadingText">Processing PDF...</h2>
+    </div>
+</div>
+
+<header>
+    <nav class="navbar">
+        <a href="index" class="logo"><div class="logo-box">S</div> Soilpad</a>
+        <div class="nav-actions">
+            <button class="nav-btn" onclick="toggleBookmarkPopup(true)"><i class="fas fa-bookmark"></i></button>
+            <button class="nav-btn" id="themeToggle"><i class="fas fa-moon"></i></button>
+        </div>
+    </nav>
+</header>
+
+<div class="content-wrapper">
+    <div class="file-card">
+        <div class="file-info"><span id="fileName">Loading...</span></div>
+        <div class="card-tools">
+            <i class="fas fa-star tool-icon" id="favIcon" onclick="toggleFavorite()"></i>
+            <i class="fas fa-share-alt tool-icon" onclick="handleShare()"></i>
+            <i class="fas fa-download tool-icon" onclick="handleDownload()"></i>
+        </div>
+    </div>
+
+    <div id="viewerContainer"></div>
+    
+    <center>
+        <button id="loadMoreBtn" onclick="loadNextBatch()">Load More Pages</button>
+    </center>
+
+    <div class="explore-card" id="exploreFolder" onclick="goToParent()">
+        <div class="explore-info">
+            <h4>Related Documents</h4>
+            <p>Explore other materials in this folder</p>
+        </div>
+        <div class="explore-icon"><i class="fas fa-arrow-right"></i></div>
+    </div>
+</div>
+
+<div class="zoom-overlay" id="zoomOverlay" onclick="this.style.display='none'">
+    <div class="zoom-content" id="zoomContent"></div>
+</div>
+
+<div class="custom-pop" id="errorPop">
+    <div class="pop-box">
+        <i class="fas fa-exclamation-circle" style="color:#ef4444; font-size: 3rem;"></i>
+        <h3 style="margin: 15px 0;">Error</h3>
+        <p id="errorMsg">Could not load file.</p>
+        <button class="pop-btn" onclick="window.location.href='files'">Go Back</button>
+    </div>
+</div>
+
+<div class="custom-pop" id="sharePop">
+    <div class="pop-box">
+        <i class="fas fa-link" style="color:var(--primary); font-size: 3rem;"></i>
+        <h3 style="margin: 15px 0;">Link Copied!</h3>
+        <button class="pop-btn" onclick="closePop('sharePop')">OK</button>
+    </div>
+</div>
+
+<div class="overlay" id="overlay" onclick="toggleBookmarkPopup(false)">
+    <div class="bookmark-popup" id="bPopup" onclick="event.stopPropagation()">
+        <h3 style="margin-bottom:15px;">Saved Files</h3>
+        <div id="popList" class="pop-list"></div>
+    </div>
+</div>
+
+<script>
+    const params = new URLSearchParams(window.location.search);
+    let rawPath = params.get('p') || params.get('file') || "";
+    if (rawPath && !rawPath.toLowerCase().match(/\.(pdf|html)$/)) rawPath += ".pdf";
+
+    const REPO_URL = `https://raw.githubusercontent.com/soilpad/contact/main/${rawPath}`;
+    let pdfDoc = null;
+    let currentPage = 1;
+    const itemsPerPage = 5;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        if (!rawPath) { showError("No file specified."); return; }
+        const cleanName = rawPath.split('/').pop().replace(/\.(pdf|html)$/i, '');
+        document.getElementById('fileName').innerText = cleanName;
+        
+        const cleanURL = window.location.origin + window.location.pathname + "?p=" + rawPath.replace(/\.pdf$/i, '');
+        window.history.replaceState({}, '', cleanURL);
+
+        checkFavStatus();
+        initPDF();
+    });
+
+    async function initPDF() {
+        try {
+            pdfDoc = await pdfjsLib.getDocument(REPO_URL).promise;
+            document.getElementById('loadingOverlay').style.display = 'none';
+            loadNextBatch();
+            showExploreCard();
+        } catch (e) {
+            showError("We couldn't reach the file.");
+        }
+    }
+
+    async function loadNextBatch() {
+        const container = document.getElementById('viewerContainer');
+        const btn = document.getElementById('loadMoreBtn');
+        btn.style.display = 'none';
+        
+        const end = Math.min(currentPage + itemsPerPage - 1, pdfDoc.numPages);
+
+        for (let i = currentPage; i <= end; i++) {
+            // Create a temporary loader for THIS page
+            const pageLoader = document.createElement('div');
+            pageLoader.className = 'page-loader';
+            pageLoader.innerHTML = '<div class="page-loader-bar"></div>';
+            container.appendChild(pageLoader);
+
+            const page = await pdfDoc.getPage(i);
+            const viewport = page.getViewport({ scale: 1.5 });
+            
+            const pageDiv = document.createElement('div');
+            pageDiv.className = 'doc-page';
+            const canvas = document.createElement('canvas');
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+            pageDiv.appendChild(canvas);
+            
+            // Render immediately
+            await page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport }).promise;
+            
+            // Remove loader and insert page
+            pageLoader.remove();
+            container.appendChild(pageDiv);
+            if (i < pdfDoc.numPages) container.appendChild(Object.assign(document.createElement('div'), {className:'page-line'}));
+            
+            pageDiv.onclick = () => zoomPage(i);
+            currentPage++;
+        }
+
+        if(currentPage <= pdfDoc.numPages) btn.style.display = 'inline-block';
+    }
+
+    async function zoomPage(num) {
+        const overlay = document.getElementById('zoomOverlay');
+        const content = document.getElementById('zoomContent');
+        overlay.style.display = 'block';
+        content.innerHTML = '<i class="fas fa-circle-notch fa-spin fa-2x" style="color:white"></i>';
+        
+        const page = await pdfDoc.getPage(num);
+        const viewport = page.getViewport({ scale: 2.5 }); // High res
+        const canvas = document.createElement('canvas');
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+        
+        await page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport }).promise;
+        content.innerHTML = '';
+        content.appendChild(canvas);
+    }
+
+    function handleDownload() {
+        const overlay = document.createElement('div');
+        overlay.className = 'sp-overlay';
+        overlay.innerHTML = `
+            <div class="sp-card">
+                <div style="font-size:3rem; color:var(--accent); margin-bottom:15px;"><i class="fas fa-hourglass-half fa-spin"></i></div>
+                <h2 style="color:var(--primary); margin-bottom:10px;">Coming Soon!</h2>
+                <p style="color:var(--muted); font-size:14px; margin-bottom:20px;">Fast download servers are currently being optimized. Stay tuned!</p>
+                <button class="pop-btn" id="closeSoon">Got it!</button>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+        setTimeout(() => { overlay.style.opacity = '1'; overlay.querySelector('.sp-card').style.transform = 'scale(1)'; }, 10);
+        document.getElementById('closeSoon').onclick = () => {
+            overlay.style.opacity = '0';
+            setTimeout(() => overlay.remove(), 300);
+        };
+    }
+
+    function showError(msg) {
+        document.getElementById('loadingOverlay').style.display = 'none';
+        document.getElementById('errorMsg').innerText = msg;
+        document.getElementById('errorPop').style.display = 'flex';
+    }
+
+    function handleShare() {
+        const cleanURL = window.location.href.split('&')[0];
+        navigator.clipboard.writeText(cleanURL).then(() => {
+            document.getElementById('sharePop').style.display = 'flex';
+        });
+    }
+
+    function closePop(id) { document.getElementById(id).style.display = 'none'; }
+
+    function toggleBookmarkPopup(show) {
+        const overlay = document.getElementById('overlay');
+        const pop = document.getElementById('bPopup');
+        if(show) {
+            overlay.style.display = 'block';
+            setTimeout(() => pop.classList.add('active'), 10);
+            renderBookmarks();
+        } else {
+            pop.classList.remove('active');
+            setTimeout(() => overlay.style.display = 'none', 400);
+        }
+    }
+
+    function renderBookmarks() {
+        const list = document.getElementById('popList');
+        const favs = JSON.parse(localStorage.getItem('sp_fav')) || [];
+        list.innerHTML = favs.length ? favs.map(f => `
+            <a href="open?p=${f.path.replace(/\.pdf$/i, '')}" style="display:flex;align-items:center;gap:10px;padding:12px;background:var(--bg);border-radius:10px;text-decoration:none;color:inherit;font-weight:600;">
+                <i class="fas fa-file-pdf" style="color:var(--primary)"></i> ${f.name.replace(/\.pdf$/i, '')}
+            </a>`).join('') : '<p style="color:var(--muted);text-align:center">No saved files</p>';
+    }
+
+    function toggleFavorite() {
+        let favs = JSON.parse(localStorage.getItem('sp_fav')) || [];
+        const idx = favs.findIndex(f => f.path === rawPath);
+        if (idx > -1) favs.splice(idx, 1);
+        else favs.push({ name: rawPath.split('/').pop(), path: rawPath });
+        localStorage.setItem('sp_fav', JSON.stringify(favs));
+        checkFavStatus();
+    }
+
+    function checkFavStatus() {
+        let favs = JSON.parse(localStorage.getItem('sp_fav')) || [];
+        document.getElementById('favIcon').classList.toggle('active', favs.some(f => f.path === rawPath));
+    }
+
+    function showExploreCard() { if (!rawPath.toLowerCase().startsWith('syllabus/')) document.getElementById('exploreFolder').style.display = 'flex'; }
+    function goToParent() { 
+        const parts = rawPath.split('/'); parts.pop(); 
+        window.location.href = `files?sel=${parts.join('/').replace('notes/','')}`; 
+    }
+
+    const themeBtn = document.getElementById('themeToggle');
+    themeBtn.onclick = () => {
+        document.body.classList.toggle('dark-mode');
+        localStorage.setItem('theme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
+        themeBtn.innerHTML = document.body.classList.contains('dark-mode') ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+    };
+    if(localStorage.getItem('theme') === 'dark') { document.body.classList.add('dark-mode'); themeBtn.innerHTML = '<i class="fas fa-sun"></i>'; }
+</script>
+</body>
+</html>
