@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Files | Soilpad</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #2d5a27; --primary-light: #ecfdf5; --bg: #f3f4f6; --card: #ffffff;
+            --text: #1f2937; --muted: #6b7280; --border: #e5e7eb; --accent: #fbbf24;
+        }
+        body.dark-mode {
+            --bg: #111827; --card: #1f2937; --text: #f9fafb; --border: #374151; --primary-light: rgba(45,90,39,0.2);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; transition: background 0.3s, color 0.3s; }
+        body { background: var(--bg); color: var(--text); overflow-x: hidden; }
+
+        /* --- Header --- */
+        header { background: var(--card); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 1000; }
+        .navbar { display: flex; justify-content: space-between; align-items: center; max-width: 1000px; margin: 0 auto; padding: 10px 15px; }
+        .logo { font-size: 20px; font-weight: 800; color: var(--primary); text-decoration: none; display: flex; align-items: center; gap: 8px; }
+        .logo-box { width: 30px; height: 30px; background: var(--primary); color: white; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+
+        /* --- Slider --- */
+        .slider-container { max-width: 1000px; margin: 15px auto; padding: 0 15px; }
+        .slider-wrapper { width: 100%; height: 140px; border-radius: 16px; overflow: hidden; background: var(--card); border: 1px solid var(--border); position: relative; }
+        .slide { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; opacity: 0; transition: 0.7s ease; cursor: pointer; }
+        .slide.active { opacity: 1; z-index: 5; }
+        .slide-syllabus { background: var(--primary); color: white; flex-direction: column; text-align: center; padding: 10px; }
+        .slide-ad img { width: 100%; height: 100%; object-fit: cover; }
+
+        /* --- Controls --- */
+        .controls-area { max-width: 1000px; margin: 0 auto; padding: 0 15px; }
+        .search-row { position: relative; margin-bottom: 20px; }
+        .search-row input { width: 100%; padding: 14px 45px; border-radius: 12px; border: 1px solid var(--border); background: var(--card); color: var(--text); outline: none; }
+        .search-row i.fa-search { position: absolute; left: 18px; top: 18px; color: var(--muted); }
+        
+        .tools-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .path-text { font-size: 13px; color: var(--muted); font-weight: 600; cursor: pointer; }
+
+        /* --- File Grid with Proper Gaps --- */
+        .main-container { max-width: 1000px; margin: 0 auto; padding: 0 15px 50px; }
+        .file-area { display: grid; gap: 18px; } /* Increased Gap */
+        .grid-view { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+        .list-view { grid-template-columns: 1fr; }
+
+        .item { 
+            gap: 10px;
+            background: var(--card); border: 1px solid var(--border); border-radius: 14px; 
+            padding: 15px; cursor: pointer; position: relative; display: flex; align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+        .grid-view .item { flex-direction: column; text-align: center;
+        gap: 10px;padding-top: 35px; min-height: 140px; }
+        .item i.main-icon { font-size: 32px; color: var(--primary); margin-bottom: 5px; }
+        .item .name { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; width: 100%; }
+        
+        .star { position: absolute; top: 12px; right: 12px; font-size: 16px; color: #d1d5db; z-index: 20; padding: 5px; }
+        .star.active { color: var(--accent); }
+
+        /* --- Bookmark Popup --- */
+        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); display: none; z-index: 2000; }
+        .bookmark-popup { 
+            position: fixed; bottom: 0; left: 0; width: 100%; height: 65%; 
+            background: var(--card); border-radius: 25px 25px 0 0; padding: 20px; 
+            transform: translateY(100%); transition: transform 0.4s ease; display: flex; flex-direction: column;
+        }
+        .bookmark-popup.active { transform: translateY(0); }
+        .pop-tabs { display: flex; background: var(--bg); padding: 4px; border-radius: 10px; margin: 15px 0; }
+        .tab { flex: 1; padding: 10px; border: none; background: none; cursor: pointer; border-radius: 8px; font-weight: 700; color: var(--muted); }
+        .tab.active { background: var(--card); color: var(--primary); }
+        .pop-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+
+        .loader { text-align: center; padding: 40px; color: var(--primary); font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<header>
+    <nav class="navbar">
+        <a href="index" class="logo"><div class="logo-box">S</div> Soilpad</a>
+        <div style="display:flex; gap:12px">
+            <button onclick="toggleBookmarkPopup(true)" style="border:none; width:38px; height:38px; background:var(--bg); border-radius:50%; cursor:pointer; color:var(--text)"><i class="fas fa-bookmark"></i></button>
+            <button id="theme-toggle" style="border:none; width:38px; height:38px; background:var(--bg); border-radius:50%; cursor:pointer; color:var(--text)"><i class="fas fa-moon"></i></button>
+        </div>
+    </nav>
+</header>
+
+<div class="slider-container">
+    <div class="slider-wrapper" id="sliderArea"></div>
+</div>
+
+<div class="controls-area">
+    <div class="search-row">
+        <i class="fas fa-search"></i>
+        <input type="text" id="searchInput" placeholder="Search across all notes..." onkeyup="handleGlobalSearch(this.value)">
+    </div>
+    <div class="tools-row">
+        <div class="path-text" id="pathDisplay" onclick="navigateBack()">Home</div>
+        <button onclick="toggleView()" style="background:var(--card); border:1px solid var(--border); padding:6px 12px; border-radius:8px; cursor:pointer; color:var(--text)"><i class="fas fa-th-large" id="viewIcon"></i></button>
+    </div>
+</div>
+
+<main class="main-container">
+    <div id="fileArea" class="file-area grid-view"></div>
+</main>
+
+<div class="overlay" id="overlay" onclick="toggleBookmarkPopup(false)">
+    <div class="bookmark-popup" id="bPopup" onclick="event.stopPropagation()">
+        <div style="display:flex; justify-content:space-between; align-items:center">
+            <h3>Bookmarks</h3>
+            <i class="fas fa-times" onclick="toggleBookmarkPopup(false)" style="font-size:22px; cursor:pointer"></i>
+        </div>
+        <div class="pop-tabs">
+            <button class="tab active" id="tabDir" onclick="renderBookmarks('dir')">Folders</button>
+            <button class="tab" id="tabFile" onclick="renderBookmarks('file')">Files</button>
+        </div>
+        <div id="popList" class="pop-list"></div>
+    </div>
+</div>
+
+<script>
+    const REPO = "https://api.github.com/repos/soilpad/contact/contents";
+    const ROOT = "notes";
+    let curPath = ""; 
+    let currentItemsData = []; // Store current view items
+    let bookmarks = JSON.parse(localStorage.getItem('sp_fav')) || [];
+    let isGrid = true;
+    let allAds = [];
+    let cycleCount = 0;
+
+    // Navigation Logic
+    window.onpopstate = () => {
+        const p = new URLSearchParams(window.location.search).get('sel') || "";
+        fetchFiles(p, false);
+    };
+
+    function navigateBack() {
+        if(!curPath) return;
+        let p = curPath.split('/'); p.pop();
+        fetchFiles(p.join('/'));
+    }
+
+    async function fetchFiles(rel, push = true) {
+        curPath = rel;
+        const area = document.getElementById('fileArea');
+        area.innerHTML = '<div class="loader">Fetching...</div>';
+        
+        if(push) {
+            const u = new URL(window.location);
+            rel ? u.searchParams.set('sel', rel) : u.searchParams.delete('sel');
+            window.history.pushState({}, '', u);
+        }
+
+        document.getElementById('pathDisplay').innerText = rel ? `Home / ${rel}` : "Home";
+
+        try {
+            const res = await fetch(`${REPO}/${rel ? ROOT+'/'+rel : ROOT}`);
+            currentItemsData = await res.json();
+            renderFiles(currentItemsData);
+            loadSlider(rel);
+        } catch (e) { area.innerHTML = '<div class="loader">Folder is empty</div>'; }
+    }
+
+    function renderFiles(items) {
+        const area = document.getElementById('fileArea');
+        area.innerHTML = items.map(item => {
+            const isFav = bookmarks.some(b => b.path === item.path);
+            const rel = item.path.replace(ROOT+'/', "").replace(ROOT, "");
+            
+            // CLEAN NAME: Remove .pdf and  extensions
+            const cleanName = item.name.replace(/\.(pdf|html)$/i, '');
+            
+            return `<div class="item" onclick="clickItem('${rel}','${item.type}','${item.path}')">
+                <i class="fas fa-star star ${isFav?'active':''}" onclick="toggleFav(event,${JSON.stringify(item).replace(/"/g, '&quot;')})"></i>
+                <i class="fas ${item.type==='dir'?'fa-folder':'fa-file-pdf'} main-icon"></i>
+                <span class="name">${cleanName}</span>
+            </div>`;
+        }).join('');
+    }
+
+    function toggleFav(e, item) {
+        e.stopPropagation();
+        const idx = bookmarks.findIndex(b => b.path === item.path);
+        if(idx > -1) bookmarks.splice(idx, 1);
+        else bookmarks.push(item);
+        
+        localStorage.setItem('sp_fav', JSON.stringify(bookmarks));
+        
+        // REAL-TIME UPDATE: Re-render the current view to show star change
+        renderFiles(currentItemsData);
+    }
+
+    function clickItem(rel, type, full) {
+        if(type==='dir') fetchFiles(rel);
+        else window.location.href = `open?p=${full}`;
+    }
+
+    // Slider Logic (10s Syllabus -> 5s Ad -> 5s Syllabus Cycle)
+    async function loadSlider(rel) {
+        const slider = document.getElementById('sliderArea');
+        if(allAds.length === 0) {
+            const r = await fetch(`${REPO}/ad.json`);
+            const d = await r.json(); allAds = JSON.parse(atob(d.content));
+        }
+        let syllabus = null;
+        if(rel) {
+            const name = rel.split('/').pop().toLowerCase();
+            try {
+                const sR = await fetch(`${REPO}/syllabus`);
+                const sF = await sR.json();
+                syllabus = sF.find(f => f.name.split('.')[0].toLowerCase() === name);
+            } catch(e){}
+        }
+        startCycle(syllabus);
+    }
+
+    function startCycle(syllabus) {
+        const slider = document.getElementById('sliderArea');
+        clearInterval(window.adTimer);
+        cycleCount = 0; 
+        const update = () => {
+            const ad = allAds[Math.floor(Math.random() * allAds.length)];
+            let content = ""; let next = 5000;
+            if (syllabus) {
+                if (cycleCount % 2 === 0) {
+                    content = `<div class="slide slide-syllabus active" onclick="window.location.href='open?file=${syllabus.path}'">
+                        <i class="fas fa-file-alt" style="font-size:24px"></i>
+                        <strong>${syllabus.name.replace(/\.(pdf|html)$/i, '')}</strong><small>Click to view Syllabus</small></div>`;
+                    next = (cycleCount === 0) ? 10000 : 5000;
+                } else {
+                    content = `<div class="slide slide-ad active" onclick="window.location.href='${ad.url}'"><img src="${ad.image}"></div>`;
+                }
+            } else {
+                content = `<div class="slide slide-ad active" onclick="window.location.href='${ad.url}'"><img src="${ad.image}"></div>`;
+            }
+            slider.innerHTML = content;
+            cycleCount++;
+            window.adTimer = setTimeout(update, next);
+        };
+        update();
+    }
+
+    async function handleGlobalSearch(val) {
+        if(!val) { fetchFiles(curPath); return; }
+        const res = await fetch(`https://api.github.com/repos/soilpad/contact/git/trees/main?recursive=1`);
+        const data = await res.json();
+        const filt = data.tree.filter(i => i.path.startsWith(ROOT) && i.path.toLowerCase().includes(val.toLowerCase()));
+        currentItemsData = filt.map(f => ({ name: f.path.split('/').pop(), path: f.path, type: f.type==='tree'?'dir':'file' }));
+        renderFiles(currentItemsData);
+    }
+
+    function toggleBookmarkPopup(show) {
+        const overlay = document.getElementById('overlay');
+        const pop = document.getElementById('bPopup');
+        if(show) {
+            overlay.style.display = 'block';
+            setTimeout(() => pop.classList.add('active'), 10);
+            renderBookmarks('dir');
+        } else {
+            pop.classList.remove('active');
+            setTimeout(() => overlay.style.display = 'none', 400);
+        }
+    }
+
+    function renderBookmarks(type) {
+        document.getElementById('tabDir').classList.toggle('active', type==='dir');
+        document.getElementById('tabFile').classList.toggle('active', type==='file');
+        const list = document.getElementById('popList');
+        const filt = bookmarks.filter(b => b.type === (type==='dir'?'dir':'file') || (type==='file' && b.type==='blob'));
+        list.innerHTML = filt.map(b => `<div class="item" style="padding:12px" onclick="clickItem('${b.path.replace(ROOT+'/','')}','${b.type==='blob'?'file':b.type}','${b.path}')">
+            <i class="fas ${b.type==='dir'?'fa-folder':'fa-file-pdf'}" style="color:var(--primary)"></i>
+            <span class="name">${b.name.replace(/\.(pdf|html)$/i, '')}</span>
+        </div>`).join('') || '<p style="text-align:center; padding:20px; color:var(--muted)">Empty</p>';
+    }
+
+    function toggleView() {
+        isGrid = !isGrid;
+        document.getElementById('fileArea').className = `file-area ${isGrid?'grid-view':'list-view'}`;
+        document.getElementById('viewIcon').className = isGrid ? 'fas fa-th-large' : 'fas fa-list';
+    }
+
+    document.getElementById('theme-toggle').onclick = () => {
+        document.body.classList.toggle('dark-mode');
+        document.getElementById('theme-toggle').innerHTML = document.body.classList.contains('dark-mode') ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+    };
+
+    const params = new URLSearchParams(window.location.search);
+    fetchFiles(params.get('sel') || "");
+</script>
+</body>
+</html>
