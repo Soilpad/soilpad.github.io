@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Admin Studio</title>
+    <!-- PDF.js for rendering PDFs client-side -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --danger: #f43f5e;
+            --success: #10b981;
+            --bg: #0f172a;
+            --card-bg: #1e293b;
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #334155;
+            --border-focus: #6366f1;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* App Container Layout - Full Screen Edge-to-Edge List */
+        .app-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        .header-flex {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            background: var(--bg);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        h2 { margin: 0; color: var(--text); font-size: 18px; font-weight: 700; letter-spacing: -0.5px; }
+
+        /* Bottom Floating Action Button (FAB) + */
+        .fab-bottom {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            font-size: 28px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.6);
+            transition: all 0.2s ease;
+            z-index: 100;
+        }
+        .fab-bottom:hover { background: var(--primary-hover); transform: scale(1.08); }
+        .fab-bottom:active { transform: scale(0.95); }
+
+        /* Full Screen Scrollable List Wrapper (No Box, Edge-to-Edge) */
+        .list-wrapper {
+            flex: 1;
+            background: var(--bg);
+            overflow-y: auto;
+            width: 100%;
+        }
+
+        .table-container {
+            width: 100%;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+            text-align: left;
+        }
+
+        td {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        tr {
+            transition: background 0.2s;
+            cursor: pointer;
+            user-select: none;
+        }
+        tr:hover { background: rgba(255, 255, 255, 0.02); }
+        tr:last-child td { border-bottom: none; }
+
+        .empty-state {
+            padding: 60px 20px;
+            text-align: center;
+            color: var(--text-muted);
+            font-style: italic;
+            cursor: default;
+        }
+
+        /* Modal Overlays & Full Screen Previews */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(8px);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        .modal-box {
+            background: var(--card-bg);
+            width: 100%;
+            max-width: 450px;
+            padding: 25px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            box-sizing: border-box;
+        }
+
+        .modal-box.fullscreen {
+            width: 100vw;
+            height: 100vh;
+            max-width: none;
+            max-height: none;
+            border-radius: 0;
+            display: flex;
+            flex-direction: column;
+            padding: 24px;
+            box-sizing: border-box;
+            background: var(--bg);
+        }
+
+        .modal-box.small {
+            max-width: 380px;
+            text-align: center;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+            text-align: left;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .form-group:last-child { margin-bottom: 0; }
+
+        label {
+            display: block;
+            font-weight: 600;
+            font-size: 12px;
+            margin-bottom: 6px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        input[type="text"], select, input[type="password"] {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            font-size: 14px;
+            box-sizing: border-box;
+            background: var(--card-bg);
+            color: var(--text);
+            transition: border-color 0.2s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+        }
+
+        /* Spinner Animation */
+        .spinner {
+            width: 45px;
+            height: 45px;
+            border: 4px solid var(--border);
+            border-top: 4px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 15px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Page Grid & Cards inside Fullscreen Preview */
+        .pages-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            gap: 14px;
+            margin: 15px 0;
+            overflow-y: auto;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: var(--card-bg);
+            flex: 1;
+        }
+
+        .page-card {
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            padding: 6px;
+            text-align: center;
+            cursor: pointer;
+            background: var(--bg);
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        .page-card:hover {
+            transform: translateY(-2px);
+            border-color: var(--primary);
+        }
+
+        .page-card.excluded {
+            opacity: 0.35;
+            border-color: var(--danger);
+            background: rgba(244, 63, 94, 0.05);
+        }
+
+        .page-card img {
+            width: 100%;
+            height: 150px;
+            object-fit: contain;
+            background: #000;
+            border-radius: 6px;
+        }
+
+        .page-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: var(--success);
+            color: white;
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .page-card.excluded .page-badge {
+            background: var(--danger);
+        }
+
+        /* Action Buttons */
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            font-size: 14px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s, transform 0.1s;
+        }
+        .btn:hover { background: var(--primary-hover); }
+        .btn:active { transform: scale(0.98); }
+        .btn-secondary { background: #334155; color: var(--text); }
+        .btn-secondary:hover { background: #475569; }
+        .btn-danger { background: var(--danger); }
+        .btn-danger:hover { background: #e11d48; }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div class="header-flex">
+        <h2>PDF Admin Studio</h2>
+    </div>
+
+    <!-- Full Screen Edge-to-Edge Scrollable List Container -->
+    <div class="list-wrapper">
+        <div class="table-container">
+            <table>
+                <tbody id="recent-files-tbody">
+                    <tr><td class="empty-state">Loading documents catalog...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Bottom Floating Action Button (FAB) -->
+    <button class="fab-bottom" onclick="triggerFileSelect()" title="Add Document">+</button>
+    <input type="file" id="hidden-pdf-input" accept="application/pdf" style="display:none;" onchange="handleFilePicked(event)">
+</div>
+
+<!-- 1. Token Request Modal (Only when needed) -->
+<div id="token-modal" class="modal-overlay">
+    <div class="modal-box small">
+        <h3 style="margin-top:0;">GitHub Token Required</h3>
+        <p style="font-size:13px; color:var(--text-muted);">Please enter a valid GitHub Personal Access Token (PAT) with repo permissions to proceed.</p>
+        <div class="form-group" style="margin-top:15px;">
+            <input type="password" id="token-input" placeholder="ghp_xxxxxxxxxxxx">
+        </div>
+        <button class="btn" style="width:100%; margin-top:10px;" onclick="saveTokenAndResume()">Save & Continue</button>
+    </div>
+</div>
+
+<!-- 2. Loading / Progress Modal -->
+<div id="loader-modal" class="modal-overlay">
+    <div class="modal-box small">
+        <div class="spinner"></div>
+        <h3 id="loader-title" style="margin-top:15px;">Processing...</h3>
+        <p id="loader-subtitle" style="font-size:13px; color:var(--text-muted);">Please wait while we handle operations securely.</p>
+    </div>
+</div>
+
+<!-- 3. Fullscreen Preview & Configuration Modal -->
+<div id="preview-modal" class="modal-overlay">
+    <div class="modal-box fullscreen">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-shrink: 0;">
+            <div>
+                <h3 style="margin:0; font-size:18px;">Full-Screen Preview & Details</h3>
+                <p style="font-size:12px; color:var(--text-muted); margin:3px 0 0 0;">Configure document properties and click page cards to toggle exclusion.</p>
+            </div>
+            <div id="active-counter-badge" style="background:rgba(99,102,241,0.2); color:var(--primary); padding:5px 12px; border-radius:20px; font-weight:600; font-size:12px;">0 active pages</div>
+        </div>
+
+        <!-- Full Width Single Line Input Fields -->
+        <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; margin-bottom: 15px;">
+            <div class="form-group" style="margin:0;">
+                <label>File Name</label>
+                <input type="text" id="preview-name">
+            </div>
+            <div class="form-group" style="margin:0;">
+                <label>Language Medium</label>
+                <select id="preview-medium">
+                    <option value="English">English</option>
+                    <option value="Hindi">Hindi</option>
+                    <option value="Both">Both</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin:0;">
+                <label>Category Tag</label>
+                <input type="text" id="preview-tag" placeholder="e.g., physics, notes, pyq">
+            </div>
+        </div>
+
+        <div class="pages-grid" id="pages-grid"></div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; flex-shrink: 0;">
+            <button class="btn btn-secondary" onclick="closeModal('preview-modal')">Discard</button>
+            <button class="btn" onclick="executeUpload()">Upload to GitHub</button>
+        </div>
+    </div>
+</div>
+
+<!-- 4. Delete Confirmation Modal -->
+<div id="delete-modal" class="modal-overlay">
+    <div class="modal-box small">
+        <h3 style="color: var(--danger); margin-top:0;">Confirm Deletion</h3>
+        <p style="font-size:13px; color:var(--text-muted);" id="delete-msg">Are you sure you want to delete this document catalog and all stored assets?</p>
+        <div style="display: flex; gap: 10px; margin-top: 22px;">
+            <button class="btn btn-secondary" style="flex:1;" onclick="closeModal('delete-modal')">Cancel</button>
+            <button class="btn btn-danger" style="flex:1;" id="confirm-delete-btn">Delete</button>
+        </div>
+    </div>
+</div>
+
+<!-- 5. Status Notification Modal -->
+<div id="status-modal" class="modal-overlay">
+    <div class="modal-box small">
+        <h3 id="status-title" style="margin-top:0;">Status</h3>
+        <p id="status-message" style="font-size:13px; color:var(--text-muted); margin-bottom:20px;">Message goes here.</p>
+        <button class="btn" style="width:100%;" onclick="closeModal('status-modal')">OK</button>
+    </div>
+</div>
+
+<script>
+    const REPO = "Soilpad/1";
+    let pendingFile = null;
+    let pdfDoc = null;
+    let pageStates = [];
+    let longPressTimer = null;
+    let resumeActionCallback = null;
+
+    window.onload = function() {
+        loadDashboardData();
+    };
+
+    function getToken() {
+        return localStorage.getItem('soilpad_gh_token') || '';
+    }
+
+    function triggerFileSelect() {
+        document.getElementById('hidden-pdf-input').value = '';
+        document.getElementById('hidden-pdf-input').click();
+    }
+
+    async function handleFilePicked(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        pendingFile = file;
+
+        // Directly setup full screen preview modal inputs
+        document.getElementById('preview-name').value = pendingFile.name.replace(/\.[^/.]+$/, "");
+        document.getElementById('preview-medium').value = "English";
+        document.getElementById('preview-tag').value = "";
+
+        await parseAndRenderPDF();
+    }
+
+    async function parseAndRenderPDF() {
+        showLoader("Parsing PDF...", "Extracting pages & generating layout cards...");
+
+        try {
+            const arrayBuffer = await pendingFile.arrayBuffer();
+            pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+            pageStates = [];
+            const grid = document.getElementById('pages-grid');
+            grid.innerHTML = '';
+
+            for (let i = 1; i <= pdfDoc.numPages; i++) {
+                const dataUrl = await renderPageWithWatermark(i);
+                pageStates.push({ pageNum: i, active: true, dataUrl: dataUrl });
+
+                const card = document.createElement('div');
+                card.className = 'page-card';
+                card.dataset.index = i - 1;
+                card.innerHTML = `
+                    <div class="page-badge">✓</div>
+                    <img src="${dataUrl}" alt="Page ${i}">
+                    <div style="font-size:11px; margin-top:4px; font-weight:600;">Page ${i}</div>
+                `;
+                card.onclick = function() {
+                    const idx = parseInt(this.dataset.index);
+                    pageStates[idx].active = !pageStates[idx].active;
+                    this.classList.toggle('excluded', !pageStates[idx].active);
+                    updateActiveCount();
+                };
+                grid.appendChild(card);
+            }
+
+            updateActiveCount();
+            hideLoader();
+            document.getElementById('preview-modal').style.display = 'flex';
+        } catch (err) {
+            hideLoader();
+            showStatus("Parsing Error", "Failed to decode PDF file structure.");
+        }
+    }
+
+    function updateActiveCount() {
+        const count = pageStates.filter(p => p.active).length;
+        document.getElementById('active-counter-badge').innerText = `${count} active pages`;
+    }
+
+    async function renderPageWithWatermark(pageNum) {
+        const page = await pdfDoc.getPage(pageNum);
+        const viewport = page.getViewport({ scale: 1.5 });
+        
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        
+        const footerHeight = 45;
+        canvas.height = viewport.height + footerHeight;
+        canvas.width = viewport.width;
+
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+
+        await page.render({ canvasContext: context, viewport: viewport }).promise;
+
+        context.save();
+        context.strokeStyle = "#cbd5e1";
+        context.lineWidth = 1;
+        context.beginPath();
+        context.moveTo(20, viewport.height + 5);
+        context.lineTo(canvas.width - 20, viewport.height + 5);
+        context.stroke();
+
+        context.font = "bold 14px Arial";
+        context.fillStyle = "#2ea44f";
+        context.textAlign = "center";
+        context.fillText("For more notes visit : soilpad.github.io", canvas.width / 2, viewport.height + 28);
+        context.restore();
+
+        return canvas.toDataURL('image/jpeg', 0.85);
+    }
+
+    function executeUpload() {
+        let token = getToken();
+        if (!token) {
+            document.getElementById('preview-modal').style.display = 'none';
+            resumeActionCallback = executeUpload;
+            document.getElementById('token-input').value = '';
+            document.getElementById('token-modal').style.display = 'flex';
+            return;
+        }
+
+        const customName = document.getElementById('preview-name').value.trim() || "document";
+        const medium = document.getElementById('preview-medium').value;
+        const tag = document.getElementById('preview-tag').value.trim();
+
+        const activePages = pageStates.filter(p => p.active);
+        if (activePages.length === 0) {
+            alert("Please keep at least one page selected.");
+            return;
+        }
+
+        document.getElementById('preview-modal').style.display = 'none';
+        showLoader("Uploading...", "Pushing assets & updating cloud metadata record...");
+
+        performUploadSequence(token, customName, medium, tag, activePages);
+    }
+
+    async function performUploadSequence(token, customName, medium, tag, activePages) {
+        const fileId = Date.now().toString();
+        const uploadTimeMs = Date.now();
+        const basePath = `document/pdf/${fileId}`;
+        const headers = {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/vnd.github+json'
+        };
+
+        try {
+            let uploadedCount = 1;
+            for (let page of activePages) {
+                const base64Content = page.dataUrl.split(',')[1];
+                const filePath = `${basePath}/${uploadedCount}.jpg`;
+                
+                await githubPutRequest(REPO, filePath, base64Content, `Add page ${uploadedCount} for ${customName}`, headers);
+                uploadedCount++;
+            }
+
+            const jsonPath = 'document/info/pdf.json';
+            let existingData = [];
+            let sha = null;
+
+            const getFileRes = await fetch(`https://api.github.com/repos/${REPO}/contents/${jsonPath}`, { headers });
+            
+            if (getFileRes.status === 401 || getFileRes.status === 403) {
+                localStorage.removeItem('soilpad_gh_token');
+                hideLoader();
+                resumeActionCallback = () => performUploadSequence(getToken(), customName, medium, tag, activePages);
+                document.getElementById('token-modal').style.display = 'flex';
+                throw new Error("Token expired or unauthorized.");
+            }
+
+            if (getFileRes.ok) {
+                const fileData = await getFileRes.json();
+                sha = fileData.sha;
+                existingData = JSON.parse(decodeURIComponent(escape(atob(fileData.content))));
+            }
+
+            existingData.push({
+                file_id: fileId,
+                file_name: customName,
+                upload_time: uploadTimeMs,
+                tag: tag,
+                total_page: activePages.length,
+                medium: medium
+            });
+
+            const updatedJsonString = JSON.stringify(existingData, null, 2);
+            const encodedJson = btoa(unescape(encodeURIComponent(updatedJsonString)));
+
+            await githubPutRequest(REPO, jsonPath, encodedJson, `Update metadata record for ${customName}`, headers, sha);
+
+            hideLoader();
+            showStatus("Success", "Document has been successfully uploaded and indexed.");
+            loadDashboardData();
+        } catch (err) {
+            hideLoader();
+            if (!err.message.includes("Token")) {
+                showStatus("Upload Failed", err.message || "An error occurred during synchronization.");
+            }
+        }
+    }
+
+    async function loadDashboardData() {
+        let token = getToken();
+        const tbody = document.getElementById('recent-files-tbody');
+        if (!token) {
+            tbody.innerHTML = `<tr><td class="empty-state">No token found. Click the '+' button to authenticate & load records.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = `<tr><td class="empty-state">Loading catalog entries...</td></tr>`;
+
+        try {
+            const jsonPath = 'document/info/pdf.json';
+            const headers = { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' };
+            const res = await fetch(`https://api.github.com/repos/${REPO}/contents/${jsonPath}`, { headers });
+
+            if (res.status === 401 || res.status === 403) {
+                localStorage.removeItem('soilpad_gh_token');
+                tbody.innerHTML = `<tr><td class="empty-state">Token unauthorized or expired. Click '+' to re-authenticate.</td></tr>`;
+                return;
+            }
+
+            if (!res.ok) {
+                tbody.innerHTML = `<tr><td class="empty-state">No records found or path configuration missing.</td></tr>`;
+                return;
+            }
+
+            const fileData = await res.json();
+            let records = JSON.parse(decodeURIComponent(escape(atob(fileData.content))));
+
+            records.sort((a, b) => b.upload_time - a.upload_time);
+
+            if (records.length === 0) {
+                tbody.innerHTML = `<tr><td class="empty-state">No documents listed. Click '+' to add one.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = '';
+            records.forEach(rec => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>
+                        <div style="font-weight:600; color:var(--text); font-size:14px;">${escapeHtml(rec.file_name)}</div>
+                        <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">Tag: ${escapeHtml(rec.tag || 'none')}</div>
+                    </td>
+                `;
+
+                // Long press deletion handler set to 2 seconds (2000ms)
+                const startHold = () => {
+                    longPressTimer = setTimeout(() => {
+                        promptDeleteDocument(rec.file_id, rec.file_name);
+                    }, 2000);
+                };
+                const cancelHold = () => clearTimeout(longPressTimer);
+
+                tr.addEventListener('mousedown', startHold);
+                tr.addEventListener('mouseup', cancelHold);
+                tr.addEventListener('mouseleave', cancelHold);
+                tr.addEventListener('touchstart', startHold);
+                tr.addEventListener('touchend', cancelHold);
+
+                tbody.appendChild(tr);
+            });
+
+        } catch (err) {
+            tbody.innerHTML = `<tr><td class="empty-state" style="color:var(--danger);">Failed to load recent files inventory.</td></tr>`;
+        }
+    }
+
+    function promptDeleteDocument(fileId, fileName) {
+        document.getElementById('delete-msg').innerText = `Are you sure you want to delete "${fileName}"? This will permanently erase all associated page assets and metadata indexes.`;
+        document.getElementById('confirm-delete-btn').onclick = function() {
+            closeModal('delete-modal');
+            deleteDocument(fileId);
+        };
+        document.getElementById('delete-modal').style.display = 'flex';
+    }
+
+    async function deleteDocument(fileId) {
+        let token = getToken();
+        if (!token) {
+            resumeActionCallback = () => deleteDocument(fileId);
+            document.getElementById('token-input').value = '';
+            document.getElementById('token-modal').style.display = 'flex';
+            return;
+        }
+
+        showLoader("Deleting...", "Purging stored components & updating cloud metadata...");
+
+        const headers = {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/vnd.github+json'
+        };
+
+        try {
+            const jsonPath = 'document/info/pdf.json';
+            const getRes = await fetch(`https://api.github.com/repos/${REPO}/contents/${jsonPath}`, { headers });
+            if (!getRes.ok) throw new Error("Could not fetch remote index catalog.");
+
+            const fileData = await getRes.json();
+            const sha = fileData.sha;
+            let records = JSON.parse(decodeURIComponent(escape(atob(fileData.content))));
+
+            const targetRecord = records.find(r => r.file_id == fileId);
+            if (!targetRecord) throw new Error("Target record not found.");
+
+            const folderPath = `document/pdf/${fileId}`;
+            const folderRes = await fetch(`https://api.github.com/repos/${REPO}/contents/${folderPath}`, { headers });
+            
+            if (folderRes.ok) {
+                const folderItems = await folderRes.json();
+                for (let item of folderItems) {
+                    await fetch(`https://api.github.com/repos/${REPO}/contents/${item.path}`, {
+                        method: 'DELETE',
+                        headers: headers,
+                        body: JSON.stringify({ message: `Purge asset asset for ${fileId}`, sha: item.sha })
+                    });
+                }
+            }
+
+            const updatedRecords = records.filter(r => r.file_id != fileId);
+            const updatedJsonString = JSON.stringify(updatedRecords, null, 2);
+            const encodedJson = btoa(unescape(encodeURIComponent(updatedJsonString)));
+
+            await githubPutRequest(REPO, jsonPath, encodedJson, `Remove index reference ${fileId}`, headers, sha);
+
+            hideLoader();
+            showStatus("Deleted", "Document assets completely cleaned up and removed.");
+            loadDashboardData();
+        } catch (err) {
+            hideLoader();
+            showStatus("Deletion Error", err.message || "Failed to process removal sequence.");
+        }
+    }
+
+    function saveTokenAndResume() {
+        const token = document.getElementById('token-input').value.trim();
+        if (!token) {
+            alert("Please input a valid token string.");
+            return;
+        }
+        localStorage.setItem('soilpad_gh_token', token);
+        document.getElementById('token-modal').style.display = 'none';
+        if (resumeActionCallback) {
+            resumeActionCallback();
+            resumeActionCallback = null;
+        } else {
+            loadDashboardData();
+        }
+    }
+
+    async function githubPutRequest(repo, path, content, message, headers, sha = null) {
+        const bodyData = { message: message, content: content };
+        if (sha) bodyData.sha = sha;
+
+        const res = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
+            method: 'PUT',
+            headers: headers,
+            body: JSON.stringify(bodyData)
+        });
+
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.message || 'GitHub API communication failure');
+        }
+        return res.json();
+    }
+
+    function showLoader(title, subtitle) {
+        document.getElementById('loader-title').innerText = title;
+        document.getElementById('loader-subtitle').innerText = subtitle;
+        document.getElementById('loader-modal').style.display = 'flex';
+    }
+
+    function hideLoader() {
+        document.getElementById('loader-modal').style.display = 'none';
+    }
+
+    function showStatus(title, message) {
+        document.getElementById('status-title').innerText = title;
+        document.getElementById('status-message').innerText = message;
+        document.getElementById('status-modal').style.display = 'flex';
+    }
+
+    function closeModal(modalId) {
+        document.getElementById(modalId).style.display = 'none';
+    }
+
+    function escapeHtml(str) {
+        return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+</script>
+
+</body>
+</html>
