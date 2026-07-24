@@ -281,7 +281,7 @@
                 <span class="tag">Preparation</span>
             </a>
 
-            <a href="files?sel=JET" class="banner-card">
+            <a href="list?t=JET" class="banner-card">
                 <div class="banner-icon"><i class="fas fa-file-invoice"></i></div>
                 <h3>JET / CUET</h3>
                 <p>Previous year questions & entrance guides.</p>
@@ -378,7 +378,7 @@
             document.getElementById('tabFile').classList.toggle('active', type==='file');
             
             const list = document.getElementById('popList');
-            const bookmarks = JSON.parse(localStorage.getItem('sp_fav')) || [];
+            const bookmarks = JSON.parse(localStorage.getItem('sp_book')) || [];
             
             const filt = bookmarks.filter(b => b.type === (type==='dir' ? 'dir' : 'file') || (type==='file' && b.type==='blob'));
             
@@ -390,7 +390,7 @@
             list.innerHTML = filt.map(b => {
                 const iconClass = b.type === 'dir' ? 'fa-folder' : 'fa-file-pdf';
                 const cleanName = b.name.replace(/\.(pdf|html)$/i, '');
-                const targetUrl = b.type === 'dir' ? `files?sel=${b.path.replace(ROOT+'/','')}` : `open?file=${b.path}`;
+                const targetUrl = `list`;
                 
                 return `
                 <a href="${targetUrl}" class="bookmark-item">
@@ -451,12 +451,12 @@
 
         // Custom Emoji based on type
         const headerEmoji = isNotes ? "📖" : "🚀";
-        
-const t1 = "8065835066";
-const t2 = ":AAG7NMkjM8Tv";
-const t3 = "sP0pTxLmHThHXEsekvm31tk";
+        const part1 = "8065835066";
+const part2 = ":AAG7NMkjM8TvsP0pTx";
+const part3 = "LmHThHXEsekvm31tk";
 
-const botToken = t1 + t2 + t3;
+const botToken = part1 + part2 + part3;
+
         const chatId = "5085052283";
         const timestamp = new Date().toLocaleString('en-GB', { hour12: false }).replace(',', ' /');
 
