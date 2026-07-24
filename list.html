@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> List | Soilpad</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #2d5a27; 
+            --primary-light: #eef2ff; 
+            --bg: #f8fafc; 
+            --card: #ffffff;
+            --text: #1e293b; 
+            --muted: #64748b; 
+            --border: #cbd5e1; 
+            --accent: #fbbf24;
+        }
+        body.dark-mode {
+            --bg: #0f172a; 
+            --card: #1e293b; 
+            --text: #f8fafc; 
+            --border: #334155; 
+            --primary-light: rgba(79, 70, 229, 0.2);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; transition: background 0.3s, color 0.3s; }
+        body { background: var(--bg); color: var(--text); overflow-x: hidden; padding-bottom: 50px; }
+
+        /* --- Header --- */
+        header { background: var(--card); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 1000; }
+        .navbar { display: flex; justify-content: space-between; align-items: center; max-width: 800px; margin: 0 auto; padding: 12px 20px; }
+        .logo { font-size: 20px; font-weight: 800; color: var(--primary); text-decoration: none; display: flex; align-items: center; gap: 10px; }
+        .logo-box { width: 35px; height: 35px; background: var(--primary); color: white; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        .nav-actions { display: flex; gap: 10px; }
+        .nav-btn { border: none; width: 40px; height: 40px; background: var(--bg); border-radius: 50%; cursor: pointer; color: var(--text); display: flex; align-items: center; justify-content: center; font-size: 16px; }
+        .nav-btn:hover { background: var(--primary-light); color: var(--primary); }
+
+        /* --- Controls Area --- */
+        .controls-container { max-width: 800px; margin: 20px auto; padding: 0 20px; }
+        .search-row { position: relative; margin-bottom: 15px; }
+        .search-row input { width: 100%; padding: 14px 14px 14px 48px; border-radius: 12px; border: 1px solid var(--border); background: var(--card); color: var(--text); outline: none; font-size: 15px; }
+        .search-row input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
+        .search-row i.fa-search { position: absolute; left: 18px; top: 18px; color: var(--muted); font-size: 16px; }
+
+        /* Active Filter Badge Bar */
+        .active-filter-bar { display: none; align-items: center; justify-content: space-between; background: var(--primary-light); padding: 8px 14px; border-radius: 8px; margin-bottom: 15px; font-size: 13px; font-weight: 600; color: var(--primary); }
+        .active-filter-bar button { background: none; border: none; color: var(--primary); cursor: pointer; font-weight: bold; }
+
+        /* --- File List (List View Only) --- */
+        .main-container { max-width: 800px; margin: 0 auto; padding: 0 20px; }
+        .file-list { display: flex; flex-direction: column; gap: 12px; }
+
+        .file-item { 
+            background: var(--card); 
+            border: 1px solid var(--border); 
+            border-radius: 14px; 
+            padding: 16px; 
+            cursor: pointer; 
+            position: relative; 
+            display: flex; 
+            align-items: center; 
+            gap: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            transition: transform 0.2s, border-color 0.2s;
+        }
+        .file-item:hover { border-color: var(--primary); transform: translateY(-1px); }
+
+        .file-icon { font-size: 28px; color: #ef4444; min-width: 35px; text-align: center; }
+        .file-info { flex: 1; overflow: hidden; }
+        .file-name { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        
+        /* Chips for Tag and Medium */
+        .chips-row { display: flex; gap: 8px; flex-wrap: wrap; }
+        .chip {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--muted);
+            cursor: pointer;
+        }
+        .chip:hover { background: var(--primary-light); color: var(--primary); border-color: var(--primary); }
+        .chip-medium { background: var(--primary-light); color: var(--primary); border-color: transparent; }
+
+        .file-meta-right { text-align: right; font-size: 11px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; min-width: 80px; }
+        .star-btn { font-size: 18px; color: #cbd5e1; background: none; border: none; cursor: pointer; padding: 5px; }
+        .star-btn.active { color: var(--accent); }
+
+        /* --- Bookmark Popup Drawer --- */
+        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); display: none; z-index: 2000; }
+        .bookmark-popup { 
+            position: fixed; bottom: 0; left: 0; width: 100%; height: 70%; 
+            background: var(--card); border-radius: 25px 25px 0 0; padding: 25px; 
+            transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); 
+            display: flex; flex-direction: column; max-width: 800px; margin: 0 auto; right: 0;
+        }
+        .bookmark-popup.active { transform: translateY(0); }
+        .pop-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; margin-top: 15px; }
+
+        .loader-box { text-align: center; padding: 50px; color: var(--muted); font-weight: 600; }
+    </style>
+</head>
+<body>
+
+<header>
+    <nav class="navbar">
+        <a href="index.html" class="logo"><div class="logo-box">S</div> Soilpad</a>
+        <div class="nav-actions">
+            <button class="nav-btn" onclick="toggleBookmarkPopup(true)" title="Bookmarks"><i class="fas fa-bookmark"></i></button>
+            <button class="nav-btn" id="theme-toggle" title="Toggle Theme"><i class="fas fa-moon"></i></button>
+        </div>
+    </nav>
+</header>
+
+<div class="controls-container">
+    <div class="search-row">
+        <i class="fas fa-search"></i>
+        <input type="text" id="searchInput" placeholder="Search by name, tag, or medium..." onkeyup="handleSearch(this.value)">
+    </div>
+
+    <div class="active-filter-bar" id="activeFilterBar">
+        <span id="filterBarText">Filtering by: Tag</span>
+        <button onclick="clearFilter()">Clear Filter <i class="fas fa-times"></i></button>
+    </div>
+</div>
+
+<main class="main-container">
+    <div id="fileArea" class="file-list">
+        <div class="loader-box"><i class="fas fa-spinner fa-spin" style="font-size:24px; margin-bottom:10px;"></i><br>Loading files from server...</div>
+    </div>
+</main>
+
+<!-- Bookmark Bottom Drawer -->
+<div class="overlay" id="overlay" onclick="toggleBookmarkPopup(false)">
+    <div class="bookmark-popup" id="bPopup" onclick="event.stopPropagation()">
+        <div style="display:flex; justify-content:space-between; align-items:center">
+            <h3>Saved Bookmarks</h3>
+            <i class="fas fa-times" onclick="toggleBookmarkPopup(false)" style="font-size:20px; cursor:pointer; color:var(--muted)"></i>
+        </div>
+        <div id="popList" class="pop-list"></div>
+    </div>
+</div>
+
+<script>
+    const REPO = "Soilpad/1";
+    const JSON_PATH = "document/info/pdf.json";
+    let allFilesData = [];
+    let bookmarks = JSON.parse(localStorage.getItem('sp_book')) || [];
+    let activeFilter = null; // { type: 'tag'|'medium', value: '...' }
+
+    async function fetchFilesList() {
+        const headers = { 'Accept': 'application/vnd.github+json' };
+
+        try {
+            const res = await fetch(`https://api.github.com/repos/${REPO}/contents/${JSON_PATH}`, { headers });
+            if (!res.ok) throw new Error("Failed to fetch metadata json");
+            
+            const fileData = await res.json();
+            const decodedJsonString = decodeURIComponent(escape(atob(fileData.content)));
+            allFilesData = JSON.parse(decodedJsonString);
+
+            // Sort files: New uploaded first (highest upload_time timestamp in milliseconds)
+            allFilesData.sort((a, b) => b.upload_time - a.upload_time);
+
+            // Check for initial URL parameters for filtering (?t=tag or ?m=medium)
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('t')) {
+                filterBy('tag', urlParams.get('t'));
+            } else if (urlParams.has('m')) {
+                filterBy('medium', urlParams.get('m'));
+            } else {
+                renderFiles(allFilesData);
+            }
+        } catch (err) {
+            document.getElementById('fileArea').innerHTML = `<div class="loader-box" style="color:#ef4444;">Could not load files list. Check repository settings or connection.</div>`;
+        }
+    }
+
+    function renderFiles(items) {
+        const area = document.getElementById('fileArea');
+        if (items.length === 0) {
+            area.innerHTML = `<div class="loader-box">No files found.</div>`;
+            return;
+        }
+
+        area.innerHTML = items.map(file => {
+            const isFav = bookmarks.some(b => b.file_id === file.file_id);
+            const dateStr = new Date(file.upload_time).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+
+            return `
+                <div class="file-item" onclick="openFile('${file.file_id}')">
+                    <i class="fas fa-file-pdf file-icon"></i>
+                    <div class="file-info">
+                        <div class="file-name" title="${file.file_name}">${file.file_name}</div>
+                        <div class="chips-row">
+                            ${file.tag ? `<span class="chip" onclick="event.stopPropagation(); filterBy('tag', '${file.tag}')">#${file.tag}</span>` : ''}
+                            <span class="chip chip-medium" onclick="event.stopPropagation(); filterBy('medium', '${file.medium}')">${file.medium}</span>
+                        </div>
+                    </div>
+                    <div class="file-meta-right" onclick="event.stopPropagation()">
+                        <button class="star-btn ${isFav ? 'active' : ''}" onclick="toggleBookmark(event, '${file.file_id}')">
+                            <i class="fas fa-star"></i>
+                        </button>
+                        <span>${file.total_page} Pages</span>
+                        <span style="font-size:10px">${dateStr}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function openFile(fileId) {
+        window.location.href = `view.html?i=${fileId}`;
+    }
+
+    function filterBy(type, value) {
+        activeFilter = { type, value };
+        const bar = document.getElementById('activeFilterBar');
+        bar.style.display = 'flex';
+        document.getElementById('filterBarText').innerText = `Filtered by ${type}: ${value}`;
+
+        const filtered = allFilesData.filter(f => f[type] && f[type].toLowerCase() === value.toLowerCase());
+        renderFiles(filtered);
+    }
+
+    function clearFilter() {
+        activeFilter = null;
+        document.getElementById('activeFilterBar').style.display = 'none';
+        document.getElementById('searchInput').value = '';
+        // Clear search parameters from URL without reloading
+        window.history.replaceState({}, document.title, window.location.pathname);
+        renderFiles(allFilesData);
+    }
+
+    function handleSearch(query) {
+        const q = query.toLowerCase().trim();
+        if (!q) {
+            renderFiles(activeFilter ? allFilesData.filter(f => f[activeFilter.type].toLowerCase() === activeFilter.value.toLowerCase()) : allFilesData);
+            return;
+        }
+
+        const filtered = allFilesData.filter(f => 
+            f.file_name.toLowerCase().includes(q) || 
+            (f.tag && f.tag.toLowerCase().includes(q)) || 
+            f.medium.toLowerCase().includes(q)
+        );
+        renderFiles(filtered);
+    }
+
+    function toggleBookmark(e, fileId) {
+        e.stopPropagation();
+        const fileObj = allFilesData.find(f => f.file_id === fileId);
+        if (!fileObj) return;
+
+        const idx = bookmarks.findIndex(b => b.file_id === fileId);
+        if (idx > -1) {
+            bookmarks.splice(idx, 1);
+        } else {
+            bookmarks.push(fileObj);
+        }
+
+        localStorage.setItem('sp_book', JSON.stringify(bookmarks));
+        
+        // Re-render list & bookmark drawer if open
+        renderFiles(activeFilter ? allFilesData.filter(f => f[activeFilter.type].toLowerCase() === activeFilter.value.toLowerCase()) : allFilesData);
+        if(document.getElementById('bPopup').classList.contains('active')) {
+            renderBookmarksList();
+        }
+    }
+
+    function toggleBookmarkPopup(show) {
+        const overlay = document.getElementById('overlay');
+        const pop = document.getElementById('bPopup');
+        if (show) {
+            overlay.style.display = 'block';
+            renderBookmarksList();
+            setTimeout(() => pop.classList.add('active'), 10);
+        } else {
+            pop.classList.remove('active');
+            setTimeout(() => overlay.style.display = 'none', 300);
+        }
+    }
+
+    function renderBookmarksList() {
+        const list = document.getElementById('popList');
+        if (bookmarks.length === 0) {
+            list.innerHTML = `<p style="text-align:center; padding:30px; color:var(--muted)">No bookmarks added yet.</p>`;
+            return;
+        }
+
+        list.innerHTML = bookmarks.map(file => `
+            <div class="file-item" style="padding:12px;" onclick="openFile('${file.file_id}')">
+                <i class="fas fa-file-pdf file-icon" style="font-size:22px;"></i>
+                <div class="file-info">
+                    <div class="file-name" style="font-size:14px; margin-bottom:2px;">${file.file_name}</div>
+                    <span style="font-size:11px; color:var(--muted);">${file.medium} • ${file.total_page} Pages</span>
+                </div>
+                <button class="star-btn active" onclick="event.stopPropagation(); toggleBookmark(event, '${file.file_id}')"><i class="fas fa-star"></i></button>
+            </div>
+        `).join('');
+    }
+
+    // Theme Toggle Handler
+    const themeBtn = document.getElementById('theme-toggle');
+    themeBtn.onclick = () => {
+        document.body.classList.toggle('dark-mode');
+        const isDark = document.body.classList.contains('dark-mode');
+        themeBtn.innerHTML = isDark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    };
+
+    if (localStorage.getItem('theme') === 'dark') {
+        document.body.classList.add('dark-mode');
+        themeBtn.innerHTML = '<i class="fas fa-sun"></i>';
+    }
+
+    // Initialize Page Load
+    fetchFilesList();
+</script>
+</body>
+</html>
