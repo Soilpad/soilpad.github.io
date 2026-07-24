@@ -120,7 +120,7 @@
                         <i class="fas fa-user-tie"></i>
                         <span>Agri. Supervisor</span>
                     </div>
-                    <div class="option-card" onclick="redirectTo('JET')">
+                    <div class="option-card" onclick="redirectTo('1784811042899')">
                         <i class="fas fa-pen-nib"></i>
                         <span>JET Exam</span>
                     </div>
@@ -205,7 +205,7 @@
 
         function redirectTo(val) {
             event.stopPropagation();
-            window.location.href = `open?p=syllabus/${val}.pdf`;
+            window.location.href = `view.html?i=${val}`;
         }
 
         // Theme Toggle Logic
@@ -252,7 +252,7 @@
             list.innerHTML = filt.map(b => {
                 const iconClass = b.type === 'dir' ? 'fa-folder' : 'fa-file-pdf';
                 const cleanName = b.name.replace(/\.(pdf|html)$/i, '');
-                const targetUrl = b.type === 'dir' ? `files?sel=${b.path.replace(ROOT+'/','')}` : `open?p=${b.path}`;
+                const targetUrl = b.type === 'dir' ? `files?sel=${b.path.replace(ROOT+'/','')}` : `open?i=${b.path}`;
                 
                 return `
                 <a href="${targetUrl}" class="bookmark-item">
