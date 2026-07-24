@@ -125,18 +125,33 @@
 
         .sem-btn:hover { background: var(--primary); color: white; }
 
-        /* --- Bookmark Popup UI --- */
+        /* --- Medium & Bookmark Popup UI --- */
         .overlay { 
             position: fixed; inset: 0; background: rgba(0,0,0,0.5); 
             backdrop-filter: blur(4px); display: none; z-index: 2000; 
         }
-        .bookmark-popup { 
-            position: fixed; bottom: 0; left: 0; width: 100%; height: 60%; 
+        
+        .medium-popup, .bookmark-popup { 
+            position: fixed; bottom: 0; left: 0; width: 100%; 
             background: var(--card-bg); border-radius: 25px 25px 0 0; 
             padding: 20px; transform: translateY(100%); transition: transform 0.4s ease;
             display: flex; flex-direction: column; z-index: 2001;
         }
-        .bookmark-popup.active { transform: translateY(0); }
+        
+        .medium-popup { height: auto; max-height: 50%; }
+        .bookmark-popup { height: 60%; }
+
+        .medium-popup.active, .bookmark-popup.active { transform: translateY(0); }
+        
+        .medium-options { display: flex; flex-direction: column; gap: 10px; margin: 20px 0; }
+        .medium-btn {
+            background: var(--bg); border: 1px solid var(--border);
+            padding: 14px; border-radius: 12px; font-weight: 600;
+            color: var(--text-main); cursor: pointer; text-align: center;
+        }
+        .medium-btn:hover { background: var(--primary); color: white; border-color: var(--primary); }
+        .medium-btn.skip { background: transparent; border-style: dashed; color: var(--text-muted); }
+
         .pop-tabs { display: flex; background: var(--bg); padding: 4px; border-radius: 10px; margin: 15px 0; }
         .tab { flex: 1; padding: 10px; border: none; background: none; cursor: pointer; border-radius: 8px; font-weight: 700; color: var(--text-muted); }
         .tab.active { background: var(--card-bg); color: var(--primary); box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
@@ -177,8 +192,8 @@
                 </div>
                 <div class="semester-box">
                     <div class="sem-list">
-                        <div class="sem-btn" onclick="goToFiles('1st')">First Semester</div>
-                        <div class="sem-btn" onclick="goToFiles('2nd')">Second Semester</div>
+                        <div class="sem-btn" onclick="openMediumModal('1 semester')">First Semester</div>
+                        <div class="sem-btn" onclick="openMediumModal('2 semester')">Second Semester</div>
                     </div>
                 </div>
             </div>
@@ -193,8 +208,8 @@
                 </div>
                 <div class="semester-box">
                     <div class="sem-list">
-                        <div class="sem-btn" onclick="goToFiles('3rd')">First Semester</div>
-                        <div class="sem-btn" onclick="goToFiles('4th')">Second Semester</div>
+                        <div class="sem-btn" onclick="openMediumModal('3 semester')">First Semester</div>
+                        <div class="sem-btn" onclick="openMediumModal('4 semester')">Second Semester</div>
                     </div>
                 </div>
             </div>
@@ -209,8 +224,8 @@
                 </div>
                 <div class="semester-box">
                     <div class="sem-list">
-                        <div class="sem-btn" onclick="goToFiles('5th')">First Semester</div>
-                        <div class="sem-btn" onclick="goToFiles('6th')">Second Semester</div>
+                        <div class="sem-btn" onclick="openMediumModal('5 semester')">First Semester</div>
+                        <div class="sem-btn" onclick="openMediumModal('6 semester')">Second Semester</div>
                     </div>
                 </div>
             </div>
@@ -225,14 +240,30 @@
                 </div>
                 <div class="semester-box">
                     <div class="sem-list">
-                        <div class="sem-btn" onclick="goToFiles('7th')">First Semester</div>
-                        <div class="sem-btn" onclick="goToFiles('8th')">Second Semester</div>
+                        <div class="sem-btn" onclick="openMediumModal('7 semester')">First Semester</div>
+                        <div class="sem-btn" onclick="openMediumModal('8 semester')">Second Semester</div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Medium Selection Popup -->
+    <div class="overlay" id="mediumOverlay" onclick="toggleMediumPopup(false)">
+        <div class="medium-popup" id="mediumPopup" onclick="event.stopPropagation()">
+            <div style="display:flex; justify-content:space-between; align-items:center">
+                <h3 style="font-size: 1.1rem;">Select Notes Medium</h3>
+                <i class="fas fa-times" onclick="toggleMediumPopup(false)" style="font-size:20px; cursor:pointer; color: var(--text-muted);"></i>
+            </div>
+            <div class="medium-options">
+                <button class="medium-btn" onclick="goToFiles('English')">English Medium</button>
+                <button class="medium-btn" onclick="goToFiles('Hindi')">Hindi Medium</button>
+                <button class="medium-btn skip" onclick="goToFiles(null)">Continue without section medium</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bookmark Popup -->
     <div class="overlay" id="overlay" onclick="toggleBookmarkPopup(false)">
         <div class="bookmark-popup" id="bPopup" onclick="event.stopPropagation()">
             <div style="display:flex; justify-content:space-between; align-items:center">
@@ -251,6 +282,7 @@
 
     <script>
         const ROOT = "notes";
+        let selectedSemester = "";
 
         // Toggle Card
         function toggleCard(card) {
@@ -260,10 +292,32 @@
             card.classList.toggle('active');
         }
 
-        // Redirect
-        function goToFiles(sem) {
+        // Open Medium Selection Modal
+        function openMediumModal(sem) {
             event.stopPropagation();
-            window.location.href = `files?sel=bsc/${sem}`;
+            selectedSemester = sem;
+            toggleMediumPopup(true);
+        }
+
+        function toggleMediumPopup(show) {
+            const overlay = document.getElementById('mediumOverlay');
+            const pop = document.getElementById('mediumPopup');
+            if(show) {
+                overlay.style.display = 'block';
+                setTimeout(() => pop.classList.add('active'), 10);
+            } else {
+                pop.classList.remove('active');
+                setTimeout(() => overlay.style.display = 'none', 400);
+            }
+        }
+
+        // Redirect with Semester and Optional Medium
+        function goToFiles(medium) {
+            let url = `list?t=${encodeURIComponent(selectedSemester)}`;
+            if (medium) {
+                url += `&medium=${encodeURIComponent(medium)}`;
+            }
+            window.location.href = url;
         }
 
         // Dark Mode Logic
