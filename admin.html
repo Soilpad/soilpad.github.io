@@ -68,7 +68,6 @@
             border: none;
             width: 60px;
             height: 60px;
-        position:fixed;
             border-radius: 50%;
             font-size: 28px;
             cursor: pointer;
@@ -88,6 +87,7 @@
             background: var(--bg);
             overflow-y: auto;
             width: 100%;
+            padding-bottom: 80px; /* Space for FAB */
         }
 
         .table-container {
@@ -212,6 +212,21 @@
             margin: 15px auto;
         }
 
+        .upload-circle-badge {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: rgba(99, 102, 241, 0.2);
+            color: var(--primary);
+            border: 2px solid var(--primary);
+            font-size: 16px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 15px auto;
+        }
+
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
@@ -324,7 +339,7 @@
     <input type="file" id="hidden-pdf-input" accept="application/pdf" style="display:none;" onchange="handleFilePicked(event)">
 </div>
 
-<!-- 1. Token Request Modal (Only when needed) -->
+<!-- 1. Token Request Modal (Asked on load if missing) -->
 <div id="token-modal" class="modal-overlay">
     <div class="modal-box small">
         <h3 style="margin-top:0;">GitHub Token Required</h3>
@@ -336,12 +351,16 @@
     </div>
 </div>
 
-<!-- 2. Loading / Progress Modal -->
+<!-- 2. Loading / Progress Modal with Stop Button -->
 <div id="loader-modal" class="modal-overlay">
     <div class="modal-box small">
-        <div class="spinner"></div>
+        <div id="loader-spinner-container">
+            <div class="spinner"></div>
+        </div>
+        <div id="loader-badge-container" style="display:none;"></div>
         <h3 id="loader-title" style="margin-top:15px;">Processing...</h3>
-        <p id="loader-subtitle" style="font-size:13px; color:var(--text-muted);">Please wait while we handle operations securely.</p>
+        <p id="loader-subtitle" style="font-size:13px; color:var(--text-muted); margin-bottom: 20px;">Please wait while we handle operations securely.</p>
+        <button id="loader-stop-btn" class="btn btn-danger" style="width:100%; display:none;" onclick="stopUploadProcess()">Stop Upload</button>
     </div>
 </div>
 
@@ -413,13 +432,22 @@
     let pageStates = [];
     let longPressTimer = null;
     let resumeActionCallback = null;
+    let isUploadCancelled = false;
 
     window.onload = function() {
+        checkTokenOnLoad();
         loadDashboardData();
     };
 
     function getToken() {
         return localStorage.getItem('soilpad_gh_token') || '';
+    }
+
+    function checkTokenOnLoad() {
+        if (!getToken()) {
+            document.getElementById('token-input').value = '';
+            document.getElementById('token-modal').style.display = 'flex';
+        }
     }
 
     function triggerFileSelect() {
@@ -432,7 +460,6 @@
         if (!file) return;
         pendingFile = file;
 
-        // Directly setup full screen preview modal inputs
         document.getElementById('preview-name').value = pendingFile.name.replace(/\.[^/.]+$/, "");
         document.getElementById('preview-medium').value = "English";
         document.getElementById('preview-tag').value = "";
@@ -441,7 +468,7 @@
     }
 
     async function parseAndRenderPDF() {
-        showLoader("Parsing PDF...", "Extracting pages & generating layout cards...");
+        showLoader("Parsing PDF...", "Extracting pages & generating layout cards...", false);
 
         try {
             const arrayBuffer = await pendingFile.arrayBuffer();
@@ -452,6 +479,7 @@
             grid.innerHTML = '';
 
             for (let i = 1; i <= pdfDoc.numPages; i++) {
+                showLoader("Parsing PDF...", `Page extracting from pdf (${i}/${pdfDoc.numPages})`, false);
                 const dataUrl = await renderPageWithWatermark(i);
                 pageStates.push({ pageNum: i, active: true, dataUrl: dataUrl });
 
@@ -540,15 +568,22 @@
         }
 
         document.getElementById('preview-modal').style.display = 'none';
-        showLoader("Uploading...", "Pushing assets & updating cloud metadata record...");
+        isUploadCancelled = false;
+        showLoader("Preparing...", "Initializing upload sequence...", true);
 
         performUploadSequence(token, customName, medium, tag, activePages);
+    }
+
+    function stopUploadProcess() {
+        isUploadCancelled = true;
+        hideLoader();
+        showStatus("Upload Stopped", "The file upload process was cancelled by the user.");
     }
 
     async function performUploadSequence(token, customName, medium, tag, activePages) {
         const fileId = Date.now().toString();
         const uploadTimeMs = Date.now();
-        const basePath = `document/pdf/${fileId}`;
+        const jsonPath = 'document/info/pdf.json';
         const headers = {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -556,16 +591,9 @@
         };
 
         try {
-            let uploadedCount = 1;
-            for (let page of activePages) {
-                const base64Content = page.dataUrl.split(',')[1];
-                const filePath = `${basePath}/${uploadedCount}.jpg`;
-                
-                await githubPutRequest(REPO, filePath, base64Content, `Add page ${uploadedCount} for ${customName}`, headers);
-                uploadedCount++;
-            }
-
-            const jsonPath = 'document/info/pdf.json';
+            // 1. Firstly update JSON metadata catalog
+            showLoader("Updating Metadata", "Updating json catalog...", false);
+            
             let existingData = [];
             let sha = null;
 
@@ -599,6 +627,26 @@
 
             await githubPutRequest(REPO, jsonPath, encodedJson, `Update metadata record for ${customName}`, headers, sha);
 
+            if (isUploadCancelled) return;
+
+            // 2. Upload photos after JSON update finishes successfully
+            const basePath = `document/pdf/${fileId}`;
+            let uploadedCount = 1;
+
+            for (let page of activePages) {
+                if (isUploadCancelled) return;
+
+                showLoader("Uploading Photos", `page uploading (${uploadedCount}/${activePages.length})`, true, uploadedCount);
+
+                const base64Content = page.dataUrl.split(',')[1];
+                const filePath = `${basePath}/${uploadedCount}.jpg`;
+                
+                await githubPutRequest(REPO, filePath, base64Content, `Add page ${uploadedCount} for ${customName}`, headers);
+                uploadedCount++;
+            }
+
+            if (isUploadCancelled) return;
+
             hideLoader();
             showStatus("Success", "Document has been successfully uploaded and indexed.");
             loadDashboardData();
@@ -614,7 +662,7 @@
         let token = getToken();
         const tbody = document.getElementById('recent-files-tbody');
         if (!token) {
-            tbody.innerHTML = `<tr><td class="empty-state">No token found. Click the '+' button to authenticate & load records.</td></tr>`;
+            tbody.innerHTML = `<tr><td class="empty-state">No token found. Enter token via the popup to load records.</td></tr>`;
             return;
         }
 
@@ -627,7 +675,7 @@
 
             if (res.status === 401 || res.status === 403) {
                 localStorage.removeItem('soilpad_gh_token');
-                tbody.innerHTML = `<tr><td class="empty-state">Token unauthorized or expired. Click '+' to re-authenticate.</td></tr>`;
+                tbody.innerHTML = `<tr><td class="empty-state">Token unauthorized or expired. Refresh to re-authenticate.</td></tr>`;
                 return;
             }
 
@@ -656,7 +704,6 @@
                     </td>
                 `;
 
-                // Long press deletion handler set to 2 seconds (2000ms)
                 const startHold = () => {
                     longPressTimer = setTimeout(() => {
                         promptDeleteDocument(rec.file_id, rec.file_name);
@@ -696,7 +743,7 @@
             return;
         }
 
-        showLoader("Deleting...", "Purging stored components & updating cloud metadata...");
+        showLoader("Deleting...", "Purging stored components & updating cloud metadata...", false);
 
         const headers = {
             'Authorization': `Bearer ${token}`,
@@ -778,9 +825,29 @@
         return res.json();
     }
 
-    function showLoader(title, subtitle) {
+    function showLoader(title, subtitle, showStopButton = false, pageNumber = null) {
         document.getElementById('loader-title').innerText = title;
         document.getElementById('loader-subtitle').innerText = subtitle;
+        
+        const spinnerContainer = document.getElementById('loader-spinner-container');
+        const badgeContainer = document.getElementById('loader-badge-container');
+
+        if (pageNumber !== null) {
+            spinnerContainer.style.display = 'none';
+            badgeContainer.style.display = 'block';
+            badgeContainer.innerHTML = `<div class="upload-circle-badge">${pageNumber}</div>`;
+        } else {
+            spinnerContainer.style.display = 'block';
+            badgeContainer.style.display = 'none';
+        }
+
+        const stopBtn = document.getElementById('loader-stop-btn');
+        if (showStopButton) {
+            stopBtn.style.display = 'block';
+        } else {
+            stopBtn.style.display = 'none';
+        }
+
         document.getElementById('loader-modal').style.display = 'flex';
     }
 
