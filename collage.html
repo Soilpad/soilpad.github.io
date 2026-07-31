@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>College Directory</title>
+    <meta property="og:title" id="ogTitle" content="Agricultural Colleges List | Soilpad">
+<meta property="og:description" content="Explore and compare top govt. & private colleges, view study materials, campuses, and courses on Soilpad.">
+<meta property="og:image" id="ogImage" content="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQAE55e2JOpugAoRlNhaa0iuXNhVjv1-R92NooCKI8yZw&s=10">
+<meta property="og:type" content="website">
+
+    <!-- Tailwind CSS for modern UI/UX -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="bg-emerald-600 text-white p-2 rounded-lg">
+                    <i class="fa-solid fa-graduation-cap text-xl"></i>
+                </div>
+                <h1 class="text-xl font-bold bg-gradient-to-r from-emerald-600 to-teal-700 bg-clip-text text-transparent" onclick="window.open('index')">
+                    College Directory
+                </h1>
+            </div>
+            
+            <div class="flex items-center space-x-4">
+                <!-- Filter Toggle Button -->
+                <button id="openFilterBtn" class="flex items-center space-x-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-4 py-2 rounded-lg font-medium transition border border-emerald-200 shadow-sm">
+                    <i class="fa-solid fa-filter"></i>
+                    <span>Filters</span>
+                    <span id="activeFilterBadge" class="hidden bg-emerald-600 text-white text-xs px-2 py-0.5 rounded-full font-bold">0</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
+        
+        <!-- Search bar & Stats -->
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+            <div>
+                <h2 class="text-2xl font-bold text-slate-900">Available Colleges</h2>
+                <p class="text-sm text-slate-500 mt-1">Showing <span id="resultCount" class="font-semibold text-slate-700">0</span> colleges matching your criteria</p>
+            </div>
+            <div class="relative w-full md:w-80">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                    <i class="fa-solid fa-search"></i>
+                </span>
+                <input type="text" id="searchInput" placeholder="Search by name, city, university..." 
+                    class="w-full pl-10 pr-4 py-2 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm shadow-sm">
+            </div>
+        </div>
+
+        <!-- Active Filters Pills container -->
+        <div id="activeFiltersContainer" class="flex flex-wrap gap-2 mb-6 hidden">
+            <!-- Dynamically filled active filter badges -->
+        </div>
+
+        <!-- Loading State -->
+        <div id="loadingState" class="flex flex-col items-center justify-center py-20">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mb-4"></div>
+            <p class="text-slate-500 font-medium">Fetching college details from repository...</p>
+        </div>
+
+        <!-- Error State -->
+        <div id="errorState" class="hidden bg-red-50 border border-red-200 rounded-xl p-6 text-center max-w-lg mx-auto my-12">
+            <div class="text-red-500 text-3xl mb-2"><i class="fa-solid fa-triangle-exclamation"></i></div>
+            <h3 class="text-lg font-bold text-red-800">Failed to load data</h3>
+            <p id="errorMessage" class="text-sm text-red-600 mt-1">Could not retrieve JSON file. Please check connection or repository path.</p>
+            <button onclick="window.location.reload()" class="mt-4 bg-red-600 hover:bg-red-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition">Retry</button>
+        </div>
+
+        <!-- College Cards Grid -->
+        <div id="collegeGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Dynamically injected cards will go here -->
+        </div>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="hidden text-center py-16 bg-white rounded-2xl border border-slate-200 shadow-sm mt-4">
+            <div class="text-slate-300 text-5xl mb-3"><i class="fa-solid fa-folder-open"></i></div>
+            <h3 class="text-lg font-medium text-slate-700">No colleges found</h3>
+            <p class="text-sm text-slate-500 mt-1">Try tweaking your search keywords or clearing active filters.</p>
+            <button id="clearFiltersBtn" class="mt-4 inline-flex items-center space-x-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium px-4 py-2 rounded-lg transition">
+                <i class="fa-solid fa-rotate-right"></i>
+                <span>Reset All Filters</span>
+            </button>
+        </div>
+    </main>
+
+    <!-- Filter Modal Popup -->
+    <div id="filterModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-300">
+        <div id="modalContent" class="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 overflow-hidden transform scale-95 transition-transform duration-300 flex flex-col max-h-[90vh]">
+            
+            <!-- Modal Header -->
+            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-sliders text-emerald-600"></i>
+                    <h3 class="font-bold text-lg text-slate-900">Filter Colleges</h3>
+                </div>
+                <button id="closeModalBtn" class="text-slate-400 hover:text-slate-600 p-2 rounded-lg transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Modal Body (Filters Form) -->
+            <div class="p-6 overflow-y-auto space-y-5 flex-grow">
+                
+                <!-- City Filter -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">City / Location</label>
+                    <select id="filterCity" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                        <option value="">All Cities</option>
+                    </select>
+                </div>
+
+                <!-- College Category (Type) Filter -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">College Category / Type</label>
+                    <select id="filterCategory" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                        <option value="">All Categories</option>
+                    </select>
+                </div>
+
+                <!-- University Filter -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">University Name</label>
+                    <select id="filterUniversity" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                        <option value="">All Universities</option>
+                    </select>
+                </div>
+
+                <!-- Course Offered Filter -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Course Offered</label>
+                    <select id="filterCourse" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                        <option value="">All Courses</option>
+                    </select>
+                </div>
+
+                <!-- Seat Type Filter -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Seat Type</label>
+                    <select id="filterSeatType" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                        <option value="">All Seat Types</option>
+                    </select>
+                </div>
+
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="px-6 py-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
+                <button id="resetModalFilters" class="text-sm font-medium text-slate-600 hover:text-slate-900 transition">
+                    Clear All
+                </button>
+                <div class="flex space-x-3">
+                    <button id="cancelModalBtn" class="px-4 py-2 rounded-lg border border-slate-300 text-sm font-medium text-slate-700 hover:bg-slate-100 transition">
+                        Cancel
+                    </button>
+                    <button id="applyFiltersBtn" class="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium shadow-sm transition">
+                        Apply Filters
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        // State Management
+        let allColleges = [];
+        let filteredColleges = [];
+
+        // DOM Elements
+        const loadingState = document.getElementById('loadingState');
+        const errorState = document.getElementById('errorState');
+        const errorMessage = document.getElementById('errorMessage');
+        const collegeGrid = document.getElementById('collegeGrid');
+        const emptyState = document.getElementById('emptyState');
+        const resultCount = document.getElementById('resultCount');
+        const searchInput = document.getElementById('searchInput');
+        
+        // Modal elements
+        const filterModal = document.getElementById('filterModal');
+        const modalContent = document.getElementById('modalContent');
+        const openFilterBtn = document.getElementById('openFilterBtn');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+        const cancelModalBtn = document.getElementById('cancelModalBtn');
+        const applyFiltersBtn = document.getElementById('applyFiltersBtn');
+        const resetModalFilters = document.getElementById('resetModalFilters');
+        const activeFilterBadge = document.getElementById('activeFilterBadge');
+        const activeFiltersContainer = document.getElementById('activeFiltersContainer');
+        const clearFiltersBtn = document.getElementById('clearFiltersBtn');
+
+        // Select dropdown elements
+        const filterCity = document.getElementById('filterCity');
+        const filterCategory = document.getElementById('filterCategory');
+        const filterUniversity = document.getElementById('filterUniversity');
+        const filterCourse = document.getElementById('filterCourse');
+        const filterSeatType = document.getElementById('filterSeatType');
+
+        // 1 & 2. Fetch JSON logic based on URL params
+        function fetchCollegeData() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const fileName = urlParams.get('c') || 'jet';
+            const jsonPath = `https://raw.githubusercontent.com/soilpad/1/main/document/json/collage/${fileName}.json`;
+
+            fetch(jsonPath)
+                .then(response => {
+                    if (!response.ok) throw new Error(`Network response error: ${response.statusText}`);
+                    return response.json();
+                })
+                .then(data => {
+                    // Handle format variations (array vs root object with key)
+                    allColleges = Array.isArray(data) ? data : (data.colleges || Object.values(data)[0] || []);
+                    filteredColleges = [...allColleges];
+                    
+                    loadingState.classList.add('hidden');
+                    populateFilterDropdowns();
+                    renderColleges(filteredColleges);
+                })
+                .catch(err => {
+                    loadingState.classList.add('hidden');
+                    errorState.classList.remove('hidden');
+                    errorMessage.textContent = err.message || "Could not retrieve JSON file from GitHub repository.";
+                });
+        }
+
+        // Render college cards on the page
+        function renderColleges(colleges) {
+            collegeGrid.innerHTML = '';
+            resultCount.textContent = colleges.length;
+
+            if (colleges.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            } else {
+                emptyState.classList.add('hidden');
+            }
+
+            colleges.forEach(college => {
+                // Normalize property keys handling casing variants
+                const name = college.collegename || college.CollegeName || 'Unknown College';
+                const city = college.CollegeCity || college.city || 'N/A';
+                const course = college.CourseOffered || college.course || 'N/A';
+                const seatType = college.SeatType || college.seatType || 'Normal';
+                const seats = college.TotalNoOfSeats || college.seats || 0;
+                const university = college.UniversityName || college.universityName || college.University || 'N/A';
+                const category = college.CollegeCategory || college.category || 'Affiliated College';
+
+                // Assign badge styles based on category/seat type
+                const isGovt = category.toLowerCase().includes('government') || category.toLowerCase().includes('constituent');
+                const badgeColor = isGovt ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200';
+
+                const card = document.createElement('div');
+                card.className = 'bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition flex flex-col justify-between p-5 overflow-hidden relative';
+                
+                card.innerHTML = `
+                    <div>
+                        <div class="flex items-start justify-between gap-2 mb-3">
+                            <span class="text-xs font-semibold px-2.5 py-1 rounded-full border ${badgeColor}">
+                                ${category}
+                            </span>
+                            <span class="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded">
+                                S.N: ${college['s.n'] || '-'}
+                            </span>
+                        </div>
+                        <h3 class="font-bold text-slate-900 text-base mb-2 line-clamp-2">${name}</h3>
+                        <div class="space-y-1.5 text-sm text-slate-600 mb-4">
+                            <p class="flex items-center space-x-2">
+                                <i class="fa-solid fa-location-dot w-4 text-slate-400"></i>
+                                <span class="font-medium text-slate-700">${city}</span>
+                            </p>
+                            <p class="flex items-center space-x-2">
+                                <i class="fa-solid fa-graduation-cap w-4 text-slate-400"></i>
+                                <span>${course}</span>
+                            </p>
+                            <p class="flex items-center space-x-2">
+                                <i class="fa-solid fa-building-columns w-4 text-slate-400"></i>
+                                <span class="truncate">${university}</span>
+                            </p>
+                        </div>
+                    </div>
+                    <div class="pt-4 border-t border-slate-100 flex items-center justify-between text-xs">
+                        <span class="text-slate-500 bg-slate-50 px-2.5 py-1 rounded-md font-medium border border-slate-200">
+                            Seat: <strong class="text-slate-700">${seatType}</strong>
+                        </span>
+                        <span class="font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-md">
+                            ${seats} Seats Available
+                        </span>
+                    </div>
+                `;
+                collegeGrid.appendChild(card);
+            });
+        }
+
+        // Populate dropdown options dynamically from fetched data
+        function populateFilterDropdowns() {
+            const cities = [...new Set(allColleges.map(c => c.CollegeCity || c.city).filter(Boolean))].sort();
+            const categories = [...new Set(allColleges.map(c => c.CollegeCategory || c.category).filter(Boolean))].sort();
+            const universities = [...new Set(allColleges.map(c => c.UniversityName || c.universityName || c.University).filter(Boolean))].sort();
+            const courses = [...new Set(allColleges.map(c => c.CourseOffered || c.course).filter(Boolean))].sort();
+            const seatTypes = [...new Set(allColleges.map(c => c.SeatType || c.seatType).filter(Boolean))].sort();
+
+            fillSelect(filterCity, cities);
+            fillSelect(filterCategory, categories);
+            fillSelect(filterUniversity, universities);
+            fillSelect(filterCourse, courses);
+            fillSelect(filterSeatType, seatTypes);
+        }
+
+        function fillSelect(selectElement, items) {
+            // Keep default option, remove rest
+            selectElement.innerHTML = `<option value="">All ${selectElement.id.replace('filter', '')}</option>`;
+            items.forEach(item => {
+                const opt = document.createElement('option');
+                opt.value = item;
+                opt.textContent = item;
+                selectElement.appendChild(opt);
+            });
+        }
+
+        // Modal Controls UI/UX
+        function toggleModal(open) {
+            if (open) {
+                filterModal.classList.remove('opacity-0', 'pointer-events-none');
+                modalContent.classList.remove('scale-95');
+            } else {
+                filterModal.classList.add('opacity-0', 'pointer-events-none');
+                modalContent.classList.add('scale-95');
+            }
+        }
+
+        openFilterBtn.addEventListener('click', () => toggleModal(true));
+        closeModalBtn.addEventListener('click', () => toggleModal(false));
+        cancelModalBtn.addEventListener('click', () => toggleModal(false));
+        filterModal.addEventListener('click', (e) => { if (e.target === filterModal) toggleModal(false); });
+
+        // Apply Multiple Filters Simultaneously
+        function applyFilters() {
+            const selectedCity = filterCity.value;
+            const selectedCategory = filterCategory.value;
+            const selectedUniversity = filterUniversity.value;
+            const selectedCourse = filterCourse.value;
+            const selectedSeatType = filterSeatType.value;
+            const searchTerm = searchInput.value.toLowerCase().trim();
+
+            filteredColleges = allColleges.filter(college => {
+                const name = (college.collegename || college.CollegeName || '').toLowerCase();
+                const city = college.CollegeCity || college.city || '';
+                const category = college.CollegeCategory || college.category || '';
+                const university = college.UniversityName || college.universityName || college.University || '';
+                const course = college.CourseOffered || college.course || '';
+                const seatType = college.SeatType || college.seatType || '';
+
+                const matchesSearch = !searchTerm || name.includes(searchTerm) || city.toLowerCase().includes(searchTerm) || university.toLowerCase().includes(searchTerm);
+                const matchesCity = !selectedCity || city === selectedCity;
+                const matchesCategory = !selectedCategory || category === selectedCategory;
+                const matchesUniversity = !selectedUniversity || university === selectedUniversity;
+                const matchesCourse = !selectedCourse || course === selectedCourse;
+                const matchesSeatType = !selectedSeatType || seatType === selectedSeatType;
+
+                return matchesSearch && matchesCity && matchesCategory && matchesUniversity && matchesCourse && matchesSeatType;
+            });
+
+            renderColleges(filteredColleges);
+            updateActiveFilterBadges({
+                City: selectedCity,
+                Category: selectedCategory,
+                University: selectedUniversity,
+                Course: selectedCourse,
+                SeatType: selectedSeatType
+            });
+            toggleModal(false);
+        }
+
+        applyFiltersBtn.addEventListener('click', applyFilters);
+
+        // Instant search listener
+        searchInput.addEventListener('input', () => {
+            applyFilters();
+        });
+
+        // Update Active Filter Badges UI
+        function updateActiveFilterBadges(filters) {
+            activeFiltersContainer.innerHTML = '';
+            let activeCount = 0;
+
+            Object.entries(filters).forEach(([key, val]) => {
+                if (val) {
+                    activeCount++;
+                    const badge = document.createElement('div');
+                    badge.className = 'flex items-center space-x-1.5 bg-emerald-50 text-emerald-800 text-xs font-medium px-3 py-1 rounded-full border border-emerald-200';
+                    badge.innerHTML = `
+                        <span><strong>${key}:</strong> ${val}</span>
+                        <button onclick="clearSingleFilter('${key}')" class="hover:text-emerald-900 ml-1"><i class="fa-solid fa-xmark"></i></button>
+                    `;
+                    activeFiltersContainer.appendChild(badge);
+                }
+            });
+
+            if (activeCount > 0) {
+                activeFilterBadge.textContent = activeCount;
+                activeFilterBadge.classList.remove('hidden');
+                activeFiltersContainer.classList.remove('hidden');
+            } else {
+                activeFilterBadge.classList.add('hidden');
+                activeFiltersContainer.classList.add('hidden');
+            }
+        }
+
+        // Clear specific filter badge
+        window.clearSingleFilter = function(key) {
+            if (key === 'City') filterCity.value = '';
+            if (key === 'Category') filterCategory.value = '';
+            if (key === 'University') filterUniversity.value = '';
+            if (key === 'Course') filterCourse.value = '';
+            if (key === 'SeatType') filterSeatType.value = '';
+            applyFilters();
+        }
+
+        // Reset all modal options & search
+        function resetAllFilters() {
+            filterCity.value = '';
+            filterCategory.value = '';
+            filterUniversity.value = '';
+            filterCourse.value = '';
+            filterSeatType.value = '';
+            searchInput.value = '';
+            applyFilters();
+        }
+
+        resetModalFilters.addEventListener('click', resetAllFilters);
+        clearFiltersBtn.addEventListener('click', resetAllFilters);
+
+        // Initialize App
+        fetchCollegeData();
+    </script>
+</body>
+</html>
