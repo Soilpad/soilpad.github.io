@@ -37,10 +37,14 @@
 
         /* --- Controls Area --- */
         .controls-container { max-width: 800px; margin: 20px auto; padding: 0 20px; }
-        .search-row { position: relative; margin-bottom: 15px; }
+        .search-wrapper { display: flex; gap: 10px; margin-bottom: 15px; }
+        .search-row { position: relative; flex: 1; }
         .search-row input { width: 100%; padding: 14px 14px 14px 48px; border-radius: 12px; border: 1px solid var(--border); background: var(--card); color: var(--text); outline: none; font-size: 15px; }
         .search-row input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
         .search-row i.fa-search { position: absolute; left: 18px; top: 18px; color: var(--muted); font-size: 16px; }
+
+        .filter-trigger-btn { width: 50px; height: 50px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; cursor: pointer; color: var(--text); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+        .filter-trigger-btn:hover { background: var(--primary-light); color: var(--primary); border-color: var(--primary); }
 
         /* Active Filter Badge Bar */
         .active-filter-bar { display: none; align-items: center; justify-content: space-between; background: var(--primary-light); padding: 8px 14px; border-radius: 8px; margin-bottom: 15px; font-size: 13px; font-weight: 600; color: var(--primary); }
@@ -69,7 +73,7 @@
         .file-info { flex: 1; overflow: hidden; }
         .file-name { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         
-        /* Chips for Tag and Medium */
+        /* Chips for Tag, Medium, and Cat */
         .chips-row { display: flex; gap: 8px; flex-wrap: wrap; }
         .chip {
             background: var(--bg);
@@ -83,21 +87,31 @@
         }
         .chip:hover { background: var(--primary-light); color: var(--primary); border-color: var(--primary); }
         .chip-medium { background: var(--primary-light); color: var(--primary); border-color: transparent; }
+        .chip-cat { background: #fef3c7; color: #d97706; border-color: transparent; }
+        body.dark-mode .chip-cat { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
 
         .file-meta-right { text-align: right; font-size: 11px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; min-width: 80px; }
         .star-btn { font-size: 18px; color: #cbd5e1; background: none; border: none; cursor: pointer; padding: 5px; }
         .star-btn.active { color: var(--accent); }
 
-        /* --- Bookmark Popup Drawer --- */
+        /* --- Generic Popups / Drawers --- */
         .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); display: none; z-index: 2000; }
-        .bookmark-popup { 
+        .bookmark-popup, .filter-popup { 
             position: fixed; bottom: 0; left: 0; width: 100%; height: 70%; 
             background: var(--card); border-radius: 25px 25px 0 0; padding: 25px; 
             transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); 
             display: flex; flex-direction: column; max-width: 800px; margin: 0 auto; right: 0;
+            z-index: 2001;
         }
-        .bookmark-popup.active { transform: translateY(0); }
+        .bookmark-popup.active, .filter-popup.active { transform: translateY(0); }
         .pop-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; margin-top: 15px; }
+
+        /* Filter Popup Form Elements */
+        .filter-form-group { margin-bottom: 15px; }
+        .filter-form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--muted); }
+        .filter-form-group select { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text); outline: none; font-size: 14px; }
+        .apply-filter-btn { width: 100%; padding: 14px; background: var(--primary); color: white; border: none; border-radius: 12px; font-weight: 700; cursor: pointer; margin-top: auto; }
+        .apply-filter-btn:hover { opacity: 0.9; }
 
         .loader-box { text-align: center; padding: 50px; color: var(--muted); font-weight: 600; }
     </style>
@@ -106,7 +120,7 @@
 
 <header>
     <nav class="navbar">
-        <a href="index.html" class="logo"><div class="logo-box">S</div> Soilpad</a>
+        <a href="https://soilpad.github.io/" class="logo"><div class="logo-box">S</div> Soilpad</a>
         <div class="nav-actions">
             <button class="nav-btn" onclick="toggleBookmarkPopup(true)" title="Bookmarks"><i class="fas fa-bookmark"></i></button>
             <button class="nav-btn" id="theme-toggle" title="Toggle Theme"><i class="fas fa-moon"></i></button>
@@ -115,13 +129,16 @@
 </header>
 
 <div class="controls-container">
-    <div class="search-row">
-        <i class="fas fa-search"></i>
-        <input type="text" id="searchInput" placeholder="Search by name, tag, or medium..." onkeyup="handleSearch(this.value)">
+    <div class="search-wrapper">
+        <div class="search-row">
+            <i class="fas fa-search"></i>
+            <input type="text" id="searchInput" placeholder="Search by name, tag, medium, or cat..." onkeyup="handleSearch(this.value)">
+        </div>
+        <button class="filter-trigger-btn" onclick="toggleFilterPopup(true)" title="Open Filters"><i class="fas fa-filter"></i></button>
     </div>
 
     <div class="active-filter-bar" id="activeFilterBar">
-        <span id="filterBarText">Filtering by: Tag</span>
+        <span id="filterBarText">Filtering</span>
         <button onclick="clearFilter()">Clear Filter <i class="fas fa-times"></i></button>
     </div>
 </div>
@@ -131,6 +148,37 @@
         <div class="loader-box"><i class="fas fa-spinner fa-spin" style="font-size:24px; margin-bottom:10px;"></i><br>Loading files from server...</div>
     </div>
 </main>
+
+<!-- Filter Popup Drawer -->
+<div class="overlay" id="filterOverlay" onclick="toggleFilterPopup(false)">
+    <div class="filter-popup" id="fPopup" onclick="event.stopPropagation()">
+        <div style="display:flex; justify-content:space-between; align-items:center">
+            <h3>Filter Options</h3>
+            <i class="fas fa-times" onclick="toggleFilterPopup(false)" style="font-size:20px; cursor:pointer; color:var(--muted)"></i>
+        </div>
+        <div class="pop-list" style="overflow-y: visible;">
+            <div class="filter-form-group">
+                <label for="filterMedium">Medium</label>
+                <select id="filterMedium">
+                    <option value="">All Mediums</option>
+                </select>
+            </div>
+            <div class="filter-form-group">
+                <label for="filterTag">Tag</label>
+                <select id="filterTag">
+                    <option value="">All Tags</option>
+                </select>
+            </div>
+            <div class="filter-form-group">
+                <label for="filterCat">Cat</label>
+                <select id="filterCat">
+                    <option value="">All Categories</option>
+                </select>
+            </div>
+        </div>
+        <button class="apply-filter-btn" onclick="applyPopupFilters()">Apply Filters</button>
+    </div>
+</div>
 
 <!-- Bookmark Bottom Drawer -->
 <div class="overlay" id="overlay" onclick="toggleBookmarkPopup(false)">
@@ -148,7 +196,22 @@
     const JSON_PATH = "document/info/pdf.json";
     let allFilesData = [];
     let bookmarks = JSON.parse(localStorage.getItem('sp_book')) || [];
-    let activeFilter = null; // { type: 'tag'|'medium', value: '...' }
+    let activeFilter = null; // { type: 'tag'|'medium'|'cat', value: '...' } or multi-filter object
+
+    function timeAgo(timestamp) {
+        const seconds = Math.floor((new Date() - timestamp) / 1000);
+        let interval = seconds / 31536000;
+        if (interval > 1) return Math.floor(interval) + " years ago";
+        interval = seconds / 2592000;
+        if (interval > 1) return Math.floor(interval) + " months ago";
+        interval = seconds / 86400;
+        if (interval > 1) return Math.floor(interval) + " days ago";
+        interval = seconds / 3600;
+        if (interval > 1) return Math.floor(interval) + " hours ago";
+        interval = seconds / 60;
+        if (interval > 1) return Math.floor(interval) + " minutes ago";
+        return "Just now";
+    }
 
     async function fetchFilesList() {
         const headers = { 'Accept': 'application/vnd.github+json' };
@@ -164,18 +227,43 @@
             // Sort files: New uploaded first (highest upload_time timestamp in milliseconds)
             allFilesData.sort((a, b) => b.upload_time - a.upload_time);
 
-            // Check for initial URL parameters for filtering (?t=tag or ?m=medium)
+            populateFilterDropdowns();
+
+            // Check for initial URL parameters for filtering (?t=tag or ?m=medium or ?c=cat)
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.has('t')) {
                 filterBy('tag', urlParams.get('t'));
             } else if (urlParams.has('m')) {
                 filterBy('medium', urlParams.get('m'));
+            } else if (urlParams.has('c')) {
+                filterBy('cat', urlParams.get('c'));
             } else {
                 renderFiles(allFilesData);
             }
         } catch (err) {
             document.getElementById('fileArea').innerHTML = `<div class="loader-box" style="color:#ef4444;">Could not load files list. Check repository settings or connection.</div>`;
         }
+    }
+
+    function populateFilterDropdowns() {
+        const mediums = new Set();
+        const tags = new Set();
+        const cats = new Set();
+
+        allFilesData.forEach(file => {
+            if (file.medium) mediums.add(file.medium);
+            if (file.tag) tags.add(file.tag);
+            if (file.cat) cats.add(file.cat);
+        });
+
+        const mediumSelect = document.getElementById('filterMedium');
+        mediumSelect.innerHTML = '<option value="">All Mediums</option>' + Array.from(mediums).map(m => `<option value="${m}">${m}</option>`).join('');
+
+        const tagSelect = document.getElementById('filterTag');
+        tagSelect.innerHTML = '<option value="">All Tags</option>' + Array.from(tags).map(t => `<option value="${t}">${t}</option>`).join('');
+
+        const catSelect = document.getElementById('filterCat');
+        catSelect.innerHTML = '<option value="">All Categories</option>' + Array.from(cats).map(c => `<option value="${c}">${c}</option>`).join('');
     }
 
     function renderFiles(items) {
@@ -187,7 +275,7 @@
 
         area.innerHTML = items.map(file => {
             const isFav = bookmarks.some(b => b.file_id === file.file_id);
-            const dateStr = new Date(file.upload_time).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+            const timeStr = file.upload_time ? timeAgo(file.upload_time) : '';
 
             return `
                 <div class="file-item" onclick="openFile('${file.file_id}')">
@@ -195,6 +283,7 @@
                     <div class="file-info">
                         <div class="file-name" title="${file.file_name}">${file.file_name}</div>
                         <div class="chips-row">
+                            ${file.cat ? `<span class="chip chip-cat" onclick="event.stopPropagation(); filterBy('cat', '${file.cat}')">${file.cat}</span>` : ''}
                             ${file.tag ? `<span class="chip" onclick="event.stopPropagation(); filterBy('tag', '${file.tag}')">#${file.tag}</span>` : ''}
                             <span class="chip chip-medium" onclick="event.stopPropagation(); filterBy('medium', '${file.medium}')">${file.medium}</span>
                         </div>
@@ -203,8 +292,7 @@
                         <button class="star-btn ${isFav ? 'active' : ''}" onclick="toggleBookmark(event, '${file.file_id}')">
                             <i class="fas fa-star"></i>
                         </button>
-                        <span>${file.total_page} Pages</span>
-                        <span style="font-size:10px">${dateStr}</span>
+                        <span style="font-size:10px">${timeStr}</span>
                     </div>
                 </div>
             `;
@@ -212,7 +300,7 @@
     }
 
     function openFile(fileId) {
-        window.location.href = `view?i=${fileId}`;
+        window.location.href = `view.html?i=${fileId}`;
     }
 
     function filterBy(type, value) {
@@ -225,10 +313,58 @@
         renderFiles(filtered);
     }
 
+    function toggleFilterPopup(show) {
+        const overlay = document.getElementById('filterOverlay');
+        const pop = document.getElementById('fPopup');
+        if (show) {
+            overlay.style.display = 'block';
+            setTimeout(() => pop.classList.add('active'), 10);
+        } else {
+            pop.classList.remove('active');
+            setTimeout(() => overlay.style.display = 'none', 300);
+        }
+    }
+
+    function applyPopupFilters() {
+        const m = document.getElementById('filterMedium').value;
+        const t = document.getElementById('filterTag').value;
+        const c = document.getElementById('filterCat').value;
+
+        toggleFilterPopup(false);
+
+        if (!m && !t && !c) {
+            clearFilter();
+            return;
+        }
+
+        activeFilter = { multi: true, m, t, c };
+        const bar = document.getElementById('activeFilterBar');
+        bar.style.display = 'flex';
+        
+        let desc = [];
+        if (m) desc.push(`Medium: ${m}`);
+        if (t) desc.push(`Tag: ${t}`);
+        if (c) desc.push(`Cat: ${c}`);
+        document.getElementById('filterBarText').innerText = `Filtered by [ ${desc.join(' | ')} ]`;
+
+        const filtered = allFilesData.filter(f => {
+            let match = true;
+            if (m && (!f.medium || f.medium.toLowerCase() !== m.toLowerCase())) match = false;
+            if (t && (!f.tag || f.tag.toLowerCase() !== t.toLowerCase())) match = false;
+            if (c && (!f.cat || f.cat.toLowerCase() !== c.toLowerCase())) match = false;
+            return match;
+        });
+
+        renderFiles(filtered);
+    }
+
     function clearFilter() {
         activeFilter = null;
         document.getElementById('activeFilterBar').style.display = 'none';
         document.getElementById('searchInput').value = '';
+        document.getElementById('filterMedium').value = '';
+        document.getElementById('filterTag').value = '';
+        document.getElementById('filterCat').value = '';
         // Clear search parameters from URL without reloading
         window.history.replaceState({}, document.title, window.location.pathname);
         renderFiles(allFilesData);
@@ -236,14 +372,31 @@
 
     function handleSearch(query) {
         const q = query.toLowerCase().trim();
+        let baseList = allFilesData;
+        
+        if (activeFilter) {
+            if (activeFilter.multi) {
+                baseList = allFilesData.filter(f => {
+                    let match = true;
+                    if (activeFilter.m && (!f.medium || f.medium.toLowerCase() !== activeFilter.m.toLowerCase())) match = false;
+                    if (activeFilter.t && (!f.tag || f.tag.toLowerCase() !== activeFilter.t.toLowerCase())) match = false;
+                    if (activeFilter.c && (!f.cat || f.cat.toLowerCase() !== activeFilter.c.toLowerCase())) match = false;
+                    return match;
+                });
+            } else {
+                baseList = allFilesData.filter(f => f[activeFilter.type] && f[activeFilter.type].toLowerCase() === activeFilter.value.toLowerCase());
+            }
+        }
+
         if (!q) {
-            renderFiles(activeFilter ? allFilesData.filter(f => f[activeFilter.type].toLowerCase() === activeFilter.value.toLowerCase()) : allFilesData);
+            renderFiles(baseList);
             return;
         }
 
-        const filtered = allFilesData.filter(f => 
+        const filtered = baseList.filter(f => 
             f.file_name.toLowerCase().includes(q) || 
             (f.tag && f.tag.toLowerCase().includes(q)) || 
+            (f.cat && f.cat.toLowerCase().includes(q)) ||
             f.medium.toLowerCase().includes(q)
         );
         renderFiles(filtered);
@@ -264,7 +417,7 @@
         localStorage.setItem('sp_book', JSON.stringify(bookmarks));
         
         // Re-render list & bookmark drawer if open
-        renderFiles(activeFilter ? allFilesData.filter(f => f[activeFilter.type].toLowerCase() === activeFilter.value.toLowerCase()) : allFilesData);
+        handleSearch(document.getElementById('searchInput').value);
         if(document.getElementById('bPopup').classList.contains('active')) {
             renderBookmarksList();
         }
@@ -295,7 +448,7 @@
                 <i class="fas fa-file-pdf file-icon" style="font-size:22px;"></i>
                 <div class="file-info">
                     <div class="file-name" style="font-size:14px; margin-bottom:2px;">${file.file_name}</div>
-                    <span style="font-size:11px; color:var(--muted);">${file.medium} • ${file.total_page} Pages</span>
+                    <span style="font-size:11px; color:var(--muted);">${file.medium} • ${file.upload_time ? timeAgo(file.upload_time) : ''}</span>
                 </div>
                 <button class="star-btn active" onclick="event.stopPropagation(); toggleBookmark(event, '${file.file_id}')"><i class="fas fa-star"></i></button>
             </div>
