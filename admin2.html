@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Soilpad | Notification Manager</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --primary: #2d5a27;
+            --primary-hover: #1e3d1a;
+            --border: #e2e8f0;
+            --danger: #ef4444;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { background-color: var(--bg); color: var(--text-main); line-height: 1.5; padding-bottom: 80px; }
+
+        header { background: var(--card-bg); border-bottom: 1px solid var(--border); padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
+        .logo { font-size: 1.4rem; font-weight: 700; color: var(--primary); }
+
+        .container { max-width: 800px; margin: 30px auto; padding: 0 20px; }
+        
+        .list-container { display: flex; flex-direction: column; gap: 15px; }
+        .item-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 16px; padding: 20px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .item-card:hover { border-color: var(--primary); }
+        .item-title { font-weight: 700; font-size: 1.1rem; margin-bottom: 4px; }
+        .item-sub { font-size: 0.85rem; color: var(--text-muted); }
+
+        /* Floating Action Button */
+        .fab { position: fixed; bottom: 30px; right: 30px; width: 60px; height: 60px; background: var(--primary); color: white; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 1.5rem; box-shadow: 0 10px 25px rgba(45, 90, 39, 0.4); cursor: pointer; z-index: 900; }
+
+        /* Full Screen Editor / Add View */
+        .fullscreen-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 2000; display: none; flex-direction: column; overflow-y: auto; }
+        .fullscreen-overlay.active { display: flex; }
+        .fs-header { background: var(--card-bg); padding: 15px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; }
+        .fs-body { max-width: 700px; width: 100%; margin: 30px auto; padding: 0 20px; flex: 1; display: flex; flex-direction: column; }
+
+        .form-group { margin-bottom: 20px; }
+        .form-group.flex-grow { display: flex; flex-direction: column; flex: 1; }
+        .form-label { display: block; font-weight: 600; margin-bottom: 8px; font-size: 0.95rem; }
+        .form-input, .form-textarea, .form-select { width: 100%; padding: 12px 15px; border: 1px solid var(--border); border-radius: 12px; background: var(--card-bg); color: var(--text-main); font-size: 1rem; outline: none; }
+        .form-textarea { resize: vertical; flex: 1; min-height: 180px; }
+
+        .btn { padding: 12px 20px; border-radius: 12px; font-weight: 600; border: none; cursor: pointer; }
+        .btn-primary { background: var(--primary); color: white; width: 100%; margin-top: 10px; margin-bottom: 20px; }
+
+        /* Custom Category Popup Modal */
+        .popup-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 3000; padding: 20px; }
+        .popup-overlay.active { display: flex; }
+        .popup-card { background: var(--card-bg); padding: 25px; border-radius: 20px; width: 100%; max-width: 450px; border: 1px solid var(--border); text-align: center; }
+        
+        /* Spinner Loader */
+        .spinner { width: 40px; height: 40px; border: 4px solid var(--border); border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 15px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">Soilpad Notification Manager</div>
+    </header>
+
+    <div class="container">
+        <h2 style="margin-bottom: 20px;">All Notifications</h2>
+        <div class="list-container" id="mainListContainer">
+            <p style="text-align:center; color:var(--text-muted); padding:40px;">Loading data...</p>
+        </div>
+    </div>
+
+    <!-- Floating Action Button to Open Full Screen Add View -->
+    <div class="fab" onclick="openAddScreen()"><i class="fas fa-plus"></i></div>
+
+    <!-- Full Screen Add / Edit View -->
+    <div class="fullscreen-overlay" id="fsEditor">
+        <div class="fs-header">
+            <button class="btn" style="background:transparent; font-size:1.2rem;" onclick="closeEditor()"><i class="fas fa-times"></i></button>
+            <h3 id="fsEditorTitle">Notification</h3>
+            <button class="btn" id="fsDeleteBtn" style="background:transparent; color:var(--danger); font-size:1.2rem; display:none;" onclick="confirmDelete()"><i class="fas fa-trash"></i></button>
+        </div>
+        <div class="fs-body" id="fsEditorContent"></div>
+    </div>
+
+    <!-- Custom Category Popup Modal -->
+    <div class="popup-overlay" id="customCatPopup">
+        <div class="popup-card">
+            <h3 style="margin-bottom:10px;">Add Custom Category</h3>
+            <p style="color:var(--text-muted); margin-bottom:15px; font-size:0.9rem;">Enter a new category name for your notification.</p>
+            <input type="text" id="customCatModalInput" class="form-input" placeholder="Category name" style="margin-bottom:20px;">
+            <div style="display:flex; gap:10px;">
+                <button class="btn" style="background:var(--border); flex:1;" onclick="closeCustomCatPopup()">Cancel</button>
+                <button class="btn btn-primary" style="flex:1; margin-top:0;" onclick="saveCustomCategory()">Add</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Generic Success/Notice/Loading Popup Modal -->
+    <div class="popup-overlay" id="genericPopup">
+        <div class="popup-card">
+            <div id="popupSpinnerContainer" style="display:none;">
+                <div class="spinner"></div>
+            </div>
+            <h3 id="popupTitle" style="margin-bottom:10px;">Notice</h3>
+            <p id="popupMsg" style="color:var(--text-muted); margin-bottom:20px;"></p>
+            <button class="btn btn-primary" id="popupOkBtn" style="margin-top:0; display:block;" onclick="closePopup()">OK</button>
+        </div>
+    </div>
+
+    <script>
+        let GH_TOKEN = localStorage.getItem('soilpad_gh_token');
+        const REPO = "soilpad/1";
+        const BRANCH = "main";
+        
+        let notifData = [];
+        let activeEditIndex = null;
+
+        if (!GH_TOKEN) {
+            GH_TOKEN = prompt("Enter GitHub Personal Access Token (soilpad_gh_token):");
+            if (GH_TOKEN) {
+                localStorage.setItem('soilpad_gh_token', GH_TOKEN.trim());
+            } else {
+                alert("Token is required to run admin panel.");
+                document.body.innerHTML = `<div style="text-align:center; margin-top:100px; color:#ef4444; font-weight:bold; font-size:1.2rem;">Access Denied: GitHub Token Missing. Refresh to try again.</div>`;
+                throw new Error("Token missing");
+            }
+        }
+
+        async function init() {
+            await fetchNotifications();
+            renderList();
+        }
+
+        async function fetchNotifications() {
+            try {
+                const res = await fetch(`https://raw.githubusercontent.com/${REPO}/${BRANCH}/document/info/notification.json`);
+                if(res.ok) notifData = await res.json();
+            } catch(e) {
+                console.error("Error loading remote notification file", e);
+            }
+        }
+
+        function renderList() {
+            const container = document.getElementById('mainListContainer');
+            if (notifData.length === 0) {
+                container.innerHTML = `<p style="text-align:center; color:var(--text-muted); padding:40px;">No notifications found.</p>`;
+                return;
+            }
+            container.innerHTML = notifData.map((item, idx) => `
+                <div class="item-card" onclick="openEditScreen(${idx})">
+                    <div>
+                        <div class="item-title">${item.title}</div>
+                        <div class="item-sub">Category: ${item.category} • ${new Date(item.time).toLocaleDateString()}</div>
+                    </div>
+                    <i class="fas fa-chevron-right" style="color:var(--text-muted)"></i>
+                </div>
+            `).join('');
+        }
+
+        function openAddScreen() {
+            activeEditIndex = null;
+            document.getElementById('fsEditorTitle').innerText = "Add New Notification";
+            document.getElementById('fsDeleteBtn').style.display = 'none';
+            
+            const categories = [...new Set(notifData.map(n => n.category))];
+            
+            document.getElementById('fsEditorContent').innerHTML = `
+                <div class="form-group">
+                    <label class="form-label">Notification Title</label>
+                    <input type="text" id="notifTitle" class="form-input" placeholder="Enter notification title">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Category</label>
+                    <select id="notifCatSelect" class="form-select" onchange="handleCategoryChange(this)">
+                        ${categories.map(c => `<option value="${c}">${c}</option>`).join('')}
+                        <option value="__custom__">+ Add New Category</option>
+                    </select>
+                </div>
+                <div class="form-group flex-grow">
+                    <label class="form-label">Description</label>
+                    <textarea id="notifDesc" class="form-textarea" placeholder="Enter complete description"></textarea>
+                </div>
+                <button class="btn btn-primary" onclick="saveNotification()">Add Notification</button>
+            `;
+            document.getElementById('fsEditor').classList.add('active');
+        }
+
+        function openEditScreen(idx) {
+            activeEditIndex = idx;
+            const item = notifData[idx];
+            document.getElementById('fsEditorTitle').innerText = "Edit Notification";
+            document.getElementById('fsDeleteBtn').style.display = 'block';
+
+            const categories = [...new Set(notifData.map(n => n.category))];
+            // Make sure current category exists in dropdown list options, if not add it
+            if(!categories.includes(item.category)) categories.push(item.category);
+
+            document.getElementById('fsEditorContent').innerHTML = `
+                <div class="form-group">
+                    <label class="form-label">Notification Title</label>
+                    <input type="text" id="notifTitle" class="form-input" value="${item.title}">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Category</label>
+                    <select id="notifCatSelect" class="form-select" onchange="handleCategoryChange(this)">
+                        ${categories.map(c => `<option value="${c}" ${c === item.category ? 'selected' : ''}>${c}</option>`).join('')}
+                        <option value="__custom__">+ Add New Category</option>
+                    </select>
+                </div>
+                <div class="form-group flex-grow">
+                    <label class="form-label">Description</label>
+                    <textarea id="notifDesc" class="form-textarea">${item.description}</textarea>
+                </div>
+                <button class="btn btn-primary" onclick="saveNotification()">Save Changes</button>
+            `;
+            document.getElementById('fsEditor').classList.add('active');
+        }
+
+        function closeEditor() {
+            document.getElementById('fsEditor').classList.remove('active');
+            activeEditIndex = null;
+        }
+
+        function handleCategoryChange(select) {
+            if (select.value === '__custom__') {
+                document.getElementById('customCatModalInput').value = '';
+                document.getElementById('customCatPopup').classList.add('active');
+            }
+        }
+
+        function closeCustomCatPopup() {
+            document.getElementById('customCatPopup').classList.remove('active');
+            const select = document.getElementById('notifCatSelect');
+            if (select && select.value === '__custom__') select.selectedIndex = 0;
+        }
+
+        function saveCustomCategory() {
+            const val = document.getElementById('customCatModalInput').value.trim();
+            if (!val) {
+                alert("Category name cannot be empty");
+                return;
+            }
+
+            const select = document.getElementById('notifCatSelect');
+            const opt = document.createElement('option');
+            opt.value = val;
+            opt.text = val;
+            opt.selected = true;
+            select.insertBefore(opt, select.lastElementChild);
+
+            document.getElementById('customCatPopup').classList.remove('active');
+        }
+
+        async function commitChangesToGitHub(updatedContentObj, successMessage) {
+            if (!confirm("Are you sure you want to upload changes to GitHub?")) return;
+
+            showLoadingPopup("Processing", "Syncing changes with GitHub server...");
+
+            try {
+                const path = 'document/info/notification.json';
+                const apiUrl = `https://api.github.com/repos/${REPO}/contents/${path}`;
+                
+                const getRes = await fetch(apiUrl, {
+                    headers: { 'Authorization': `token ${GH_TOKEN}` }
+                });
+                if(!getRes.ok) throw new Error("Failed to fetch target file SHA from GitHub.");
+                const fileMeta = await getRes.json();
+
+                const putRes = await fetch(apiUrl, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `token ${GH_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: `Admin update notifications via Soilpad panel`,
+                        content: btoa(unescape(encodeURIComponent(JSON.stringify(updatedContentObj, null, 2)))),
+                        sha: fileMeta.sha,
+                        branch: BRANCH
+                    })
+                });
+
+                if(!putRes.ok) throw new Error("Failed to commit changes to GitHub repository.");
+
+                showSuccessPopup("Success", successMessage);
+                closeEditor();
+                await fetchNotifications();
+                renderList();
+
+            } catch (err) {
+                showErrorPopup("Error", err.message);
+            }
+        }
+
+        function saveNotification() {
+            const title = document.getElementById('notifTitle').value.trim();
+            const desc = document.getElementById('notifDesc').value.trim();
+            const cat = document.getElementById('notifCatSelect').value;
+
+            if (!title || !cat || cat === '__custom__' || !desc) {
+                alert("Please fill all fields properly.");
+                return;
+            }
+
+            if (activeEditIndex === null) {
+                const newObj = {
+                    category: cat,
+                    title: title,
+                    description: desc,
+                    time: Date.now()
+                };
+                notifData.unshift(newObj);
+                commitChangesToGitHub(notifData, "Notification successfully added!");
+            } else {
+                notifData[activeEditIndex].title = title;
+                notifData[activeEditIndex].category = cat;
+                notifData[activeEditIndex].description = desc;
+                commitChangesToGitHub(notifData, "Notification successfully updated!");
+            }
+        }
+
+        function confirmDelete() {
+            if (!confirm("Are you sure you want to delete this notification?")) return;
+
+            notifData.splice(activeEditIndex, 1);
+            commitChangesToGitHub(notifData, "Notification successfully deleted!");
+        }
+
+        function showLoadingPopup(title, msg) {
+            document.getElementById('popupTitle').innerText = title;
+            document.getElementById('popupMsg').innerText = msg;
+            document.getElementById('popupSpinnerContainer').style.display = 'block';
+            document.getElementById('popupOkBtn').style.display = 'none';
+            document.getElementById('genericPopup').classList.add('active');
+        }
+
+        function showSuccessPopup(title, msg) {
+            document.getElementById('popupSpinnerContainer').style.display = 'none';
+            document.getElementById('popupTitle').innerText = title;
+            document.getElementById('popupMsg').innerText = msg;
+            document.getElementById('popupOkBtn').style.display = 'block';
+        }
+
+        function showErrorPopup(title, msg) {
+            document.getElementById('popupSpinnerContainer').style.display = 'none';
+            document.getElementById('popupTitle').innerText = title;
+            document.getElementById('popupMsg').innerText = msg;
+            document.getElementById('popupOkBtn').style.display = 'block';
+        }
+
+        function closePopup() {
+            document.getElementById('genericPopup').classList.remove('active');
+        }
+
+        init();
+    </script>
+</body>
+</html>
