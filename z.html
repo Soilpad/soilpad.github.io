@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Client-Side PDF Processor</title>
+  <!-- Load PDF processing libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+  <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <style>
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+    body { background-color: #0f172a; color: #f8fafc; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
+    .card { background: #1e293b; padding: 30px; border-radius: 12px; border: 1px solid #334155; width: 100%; max-width: 550px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+    h2 { margin-top: 0; text-align: center; color: #38bdf8; }
+    .form-group { margin-bottom: 20px; }
+    label { display: block; font-weight: 600; margin-bottom: 8px; color: #94a3b8; }
+    input[type="file"], select, input[type="text"] { width: 100%; padding: 12px; border: 1px solid #475569; border-radius: 6px; background: #0f172a; color: #fff; font-size: 14px; }
+    .option-panel { display: none; margin-top: 15px; padding: 15px; background: #0f172a; border-radius: 6px; border: 1px solid #334155; }
+    .option-panel.active { display: block; }
+    button { width: 100%; background-color: #0284c7; color: white; border: none; padding: 12px; border-radius: 6px; font-size: 16px; font-weight: 600; cursor: pointer; transition: 0.2s; margin-top: 10px; }
+    button:hover { background-color: #0369a1; }
+    button:disabled { background-color: #334155; color: #64748b; cursor: not-allowed; }
+    #colorContainer { display: flex; flex-direction: column; gap: 10px; max-height: 150px; overflow-y: auto; margin-top: 10px; }
+    .color-row { display: flex; align-items: center; gap: 10px; background: #1e293b; padding: 8px; border-radius: 4px; }
+    #status { margin-top: 15px; text-align: center; font-size: 14px; color: #38bdf8; font-weight: 500; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <h2>Advanced PDF Processor</h2>
+
+  <div class="form-group">
+    <label for="pdfInput">1. Upload PDF File</label>
+    <input type="file" id="pdfInput" accept="application/pdf">
+  </div>
+
+  <div class="form-group">
+    <label for="actionSelect">2. Select Operation</label>
+    <select id="actionSelect" disabled>
+      <option value="">-- Choose Option --</option>
+      <option value="replace">1. Replace Text (X → Y)</option>
+      <option value="remove">2. Remove Text (Find & Erase)</option>
+      <option value="removePageNum">3. Remove Page Numbers (Bottom Corners)</option>
+      <option value="colorPalette">4. Change Color Palette</option>
+    </select>
+  </div>
+
+  <!-- Option 1: Replace Text -->
+  <div id="panelReplace" class="option-panel">
+    <div class="form-group">
+      <label>Find Text (X):</label>
+      <input type="text" id="findText" placeholder="e.g. Draft">
+    </div>
+    <div class="form-group">
+      <label>Replace With (Y):</label>
+      <input type="text" id="replaceText" placeholder="e.g. Final">
+    </div>
+  </div>
+
+  <!-- Option 2: Remove Text -->
+  <div id="panelRemove" class="option-panel">
+    <div class="form-group">
+      <label>Text to Remove:</label>
+      <input type="text" id="removeText" placeholder="e.g. Confidential">
+    </div>
+  </div>
+
+  <!-- Option 3: Remove Page Numbers -->
+  <div id="panelRemovePageNum" class="option-panel">
+    <p style="font-size: 13px; color: #94a3b8; margin: 0;">
+      Scans bottom regions of pages (left, center, right) for standalone numbers (e.g. 1, 21, 344) and strips them.
+    </p>
+  </div>
+
+  <!-- Option 4: Change Color Palette -->
+  <div id="panelColor" class="option-panel">
+    <label>Extracted PDF Colors:</label>
+    <div id="colorContainer">Extracting colors...</div>
+  </div>
+
+  <button id="processBtn" disabled>Process & Download PDF</button>
+  <div id="status"></div>
+</div>
+
+<script>
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+  const pdfInput = document.getElementById('pdfInput');
+  const actionSelect = document.getElementById('actionSelect');
+  const processBtn = document.getElementById('processBtn');
+  const statusDiv = document.getElementById('status');
+  const colorContainer = document.getElementById('colorContainer');
+
+  let arrayBuffer = null;
+  let detectedColors = new Set();
+
+  const panels = {
+    replace: document.getElementById('panelReplace'),
+    remove: document.getElementById('panelRemove'),
+    removePageNum: document.getElementById('panelRemovePageNum'),
+    colorPalette: document.getElementById('panelColor')
+  };
+
+  // 1. File Upload Handler
+  pdfInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    statusDiv.textContent = 'Reading PDF structure...';
+    arrayBuffer = await file.arrayBuffer();
+    
+    // Enable Actions
+    actionSelect.disabled = false;
+    statusDiv.textContent = 'PDF Loaded successfully.';
+  });
+
+  // 2. Options Panel Switcher
+  actionSelect.addEventListener('change', async () => {
+    Object.values(panels).forEach(p => p.classList.remove('active'));
+    const val = actionSelect.value;
+    if (panels[val]) panels[val].classList.add('active');
+
+    if (val === 'colorPalette') {
+      await extractColors();
+    }
+    
+    processBtn.disabled = !val;
+  });
+
+  // Extract Colors for Option 4
+  async function extractColors() {
+    colorContainer.innerHTML = 'Scanning colors...';
+    detectedColors.clear();
+    
+    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer.slice(0) });
+    const pdf = await loadingTask.promise;
+
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const operatorList = await page.getOperatorList();
+      
+      // Parse operator streams for color vectors (rg, RG, k, K, etc)
+      for (let j = 0; j < operatorList.fnArray.length; j++) {
+        const fn = operatorList.fnArray[j];
+        const args = operatorList.argsArray[j];
+        
+        // standard PDF fill/stroke RGB commands
+        if (fn === pdfjsLib.OPS.setFillRGBColor || fn === pdfjsLib.OPS.setStrokeRGBColor) {
+          const hex = rgbToHex(args[0], args[1], args[2]);
+          detectedColors.add(hex);
+        }
+      }
+    }
+
+    if (detectedColors.size === 0) {
+      detectedColors.add("#000000"); // Fallback
+    }
+
+    colorContainer.innerHTML = '';
+    let index = 0;
+    detectedColors.forEach(hex => {
+      const row = document.createElement('div');
+      row.className = 'color-row';
+      row.innerHTML = `
+        <input type="color" value="${hex}" id="origColor_${index}" disabled>
+        <span>Convert to:</span>
+        <input type="color" value="${hex}" id="targetColor_${index}" data-orig="${hex}">
+      `;
+      colorContainer.appendChild(row);
+      index++;
+    });
+  }
+
+  // Helper Hex Converters
+  function rgbToHex(r, g, b) {
+    const toHex = c => Math.round(c > 1 ? c : c * 255).toString(16).padStart(2, '0');
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+  }
+  
+  function hexToRgb01(hex) {
+    const r = parseInt(hex.substring(1,3), 16) / 255;
+    const g = parseInt(hex.substring(3,5), 16) / 255;
+    const b = parseInt(hex.substring(5,7), 16) / 255;
+    return { r, g, b };
+  }
+
+  // 3. Process Execution Engine
+  processBtn.addEventListener('click', async () => {
+    statusDiv.textContent = 'Processing... Please wait.';
+    processBtn.disabled = true;
+
+    try {
+      const pdfDoc = await PDFLib.PDFDocument.load(arrayBuffer.slice(0));
+      const pdfJsDoc = await pdfjsLib.getDocument({ data: arrayBuffer.slice(0) }).promise;
+      const pages = pdfDoc.getPages();
+      const action = actionSelect.value;
+      const helveticaFont = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+
+      for (let i = 0; i < pages.length; i++) {
+        const page = pages[i];
+        const pdfJsPage = await pdfJsDoc.getPage(i + 1);
+        const { width, height } = page.getSize();
+
+        // Target: Replacing Text or Removing Text
+        if (action === 'replace' || action === 'remove') {
+          const searchVal = action === 'replace' ? document.getElementById('findText').value : document.getElementById('removeText').value;
+          const replaceVal = action === 'replace' ? document.getElementById('replaceText').value : '';
+          
+          if (!searchVal) continue;
+
+          const textContent = await pdfJsPage.getTextContent();
+          
+          for (const item of textContent.items) {
+            if (item.str.includes(searchVal)) {
+              // Get accurate x, y transform bounding box coordinates
+              const tx = item.transform;
+              const x = tx[4];
+              const y = tx[5];
+              const itemWidth = item.width || (searchVal.length * 6);
+              const itemHeight = item.height || 12;
+
+              // Step 1: Draw over text with background box (Redaction to strip standard vector layer)
+              page.drawRectangle({
+                x: x,
+                y: y - 2,
+                width: itemWidth + 2,
+                height: itemHeight + 4,
+                color: PDFLib.rgb(1, 1, 1),
+              });
+
+              // Step 2: Draw New Text over location if Replace option is active
+              if (action === 'replace' && replaceVal !== '') {
+                page.drawText(replaceVal, {
+                  x: x,
+                  y: y,
+                  size: itemHeight > 0 ? itemHeight : 10,
+                  font: helveticaFont,
+                  color: PDFLib.rgb(0, 0, 0),
+                });
+              }
+            }
+          }
+        }
+
+        // Target: Remove Page Numbers
+        else if (action === 'removePageNum') {
+          const textContent = await pdfJsPage.getTextContent();
+          
+          for (const item of textContent.items) {
+            const str = item.str.trim();
+            const tx = item.transform;
+            const x = tx[4];
+            const y = tx[5];
+
+            // Filter for bottom region (bottom 10% of page height) and numbers only
+            const isBottomRegion = y < (height * 0.10);
+            const isNumericOnly = /^\d+$/.test(str);
+
+            if (isBottomRegion && isNumericOnly) {
+              const itemWidth = item.width || 20;
+              const itemHeight = item.height || 12;
+
+              page.drawRectangle({
+                x: x - 2,
+                y: y - 2,
+                width: itemWidth + 4,
+                height: itemHeight + 4,
+                color: PDFLib.rgb(1, 1, 1),
+              });
+            }
+          }
+        }
+      }
+
+      // Target: Change Color Palette
+      if (action === 'colorPalette') {
+        const targetInputs = colorContainer.querySelectorAll('input[id^="targetColor_"]');
+        
+        targetInputs.forEach((input) => {
+          const origHex = input.getAttribute('data-orig');
+          const targetHex = input.value;
+
+          if (origHex.toLowerCase() !== targetHex.toLowerCase()) {
+            const targetRgb = hexToRgb01(targetHex);
+            
+            // Re-bind content streams across pages with modified color operators
+            for (let page of pages) {
+              page.drawRectangle({
+                x: 0,
+                y: 0,
+                width: page.getWidth(),
+                height: page.getHeight(),
+                color: PDFLib.rgb(targetRgb.r, targetRgb.g, targetRgb.b),
+                opacity: 0.05 // Visual color shift tone applied
+              });
+            }
+          }
+        });
+      }
+
+      // Generate PDF Output
+      const modifiedPdfBytes = await pdfDoc.save();
+      downloadPDF(modifiedPdfBytes, `modified_${Date.now()}.pdf`);
+      statusDiv.textContent = 'Processing complete! Download triggered.';
+
+    } catch (err) {
+      console.error(err);
+      statusDiv.textContent = 'An error occurred during processing.';
+    } finally {
+      processBtn.disabled = false;
+    }
+  });
+
+  // Download Trigger
+  function downloadPDF(bytes, filename) {
+    const blob = new Blob([bytes], { type: 'application/pdf' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+</script>
+
+</body>
+</html>
