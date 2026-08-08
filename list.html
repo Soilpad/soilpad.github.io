@@ -84,6 +84,7 @@
             font-weight: 600;
             color: var(--muted);
             cursor: pointer;
+            
         }
         .chip:hover { background: var(--primary-light); color: var(--primary); border-color: var(--primary); }
         .chip-medium { background: var(--primary-light); color: var(--primary); border-color: transparent; }
@@ -120,7 +121,7 @@
 
 <header>
     <nav class="navbar">
-        <a href="https://soilpad.github.io/" class="logo"><div class="logo-box">S</div> Soilpad</a>
+        <a href="./" class="logo"><div class="logo-box">S</div>  Soilpad</a>
         <div class="nav-actions">
             <button class="nav-btn" onclick="toggleBookmarkPopup(true)" title="Bookmarks"><i class="fas fa-bookmark"></i></button>
             <button class="nav-btn" id="theme-toggle" title="Toggle Theme"><i class="fas fa-moon"></i></button>
@@ -196,7 +197,7 @@
     const JSON_PATH = "document/info/pdf.json";
     let allFilesData = [];
     let bookmarks = JSON.parse(localStorage.getItem('sp_book')) || [];
-    let activeFilter = null; // { type: 'tag'|'medium'|'cat', value: '...' } or multi-filter object
+    let activeFilter = null; 
 
     function timeAgo(timestamp) {
         const seconds = Math.floor((new Date() - timestamp) / 1000);
@@ -229,9 +230,13 @@
 
             populateFilterDropdowns();
 
-            // Check for initial URL parameters for filtering (?t=tag or ?m=medium or ?c=cat)
+            // Check URL parameters for search (?s=...) or filters (?t=, ?m=, ?c=)
             const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.has('t')) {
+            if (urlParams.has('s')) {
+                const searchVal = urlParams.get('s');
+                document.getElementById('searchInput').value = searchVal;
+                handleSearch(searchVal);
+            } else if (urlParams.has('t')) {
                 filterBy('tag', urlParams.get('t'));
             } else if (urlParams.has('m')) {
                 filterBy('medium', urlParams.get('m'));
@@ -365,13 +370,14 @@
         document.getElementById('filterMedium').value = '';
         document.getElementById('filterTag').value = '';
         document.getElementById('filterCat').value = '';
-        // Clear search parameters from URL without reloading
         window.history.replaceState({}, document.title, window.location.pathname);
         renderFiles(allFilesData);
     }
 
     function handleSearch(query) {
-        const q = query.toLowerCase().trim();
+        const rawQuery = query.trim();
+        const q = rawQuery.toLowerCase();
+        
         let baseList = allFilesData;
         
         if (activeFilter) {
@@ -389,17 +395,57 @@
         }
 
         if (!q) {
+            window.history.replaceState({}, document.title, window.location.pathname);
             renderFiles(baseList);
             return;
         }
 
-        const filtered = baseList.filter(f => 
-            f.file_name.toLowerCase().includes(q) || 
-            (f.tag && f.tag.toLowerCase().includes(q)) || 
-            (f.cat && f.cat.toLowerCase().includes(q)) ||
-            f.medium.toLowerCase().includes(q)
-        );
-        renderFiles(filtered);
+        // Update URL parameter ?s= without page reload
+        const newUrl = new URL(window.location);
+        newUrl.searchParams.set('s', rawQuery);
+        window.history.replaceState({}, document.title, newUrl);
+
+        // Split query into individual keywords (ignoring empty strings)
+        const keywords = q.split(/\s+/).filter(Boolean);
+
+        // Score and filter items for multi-word relevance
+        const scoredItems = [];
+
+        baseList.forEach(f => {
+            const name = (f.file_name || "").toLowerCase();
+            const tag = (f.tag || "").toLowerCase();
+            const cat = (f.cat || "").toLowerCase();
+            const medium = (f.medium || "").toLowerCase();
+
+            let score = 0;
+            let matchedAny = false;
+
+            // 1. Highest priority: Exact phrase match in file name
+            if (name.includes(q)) {
+                score += 100;
+                matchedAny = true;
+            }
+
+            // 2. Check individual keyword occurrences across file fields
+            keywords.forEach(kw => {
+                let kwMatched = false;
+                if (name.includes(kw)) { score += 20; kwMatched = true; }
+                if (tag.includes(kw)) { score += 10; kwMatched = true; }
+                if (cat.includes(kw)) { score += 5; kwMatched = true; }
+                if (medium.includes(kw)) { score += 5; kwMatched = true; }
+                
+                if (kwMatched) matchedAny = true;
+            });
+
+            if (matchedAny) {
+                scoredItems.push({ file: f, score });
+            }
+        });
+
+        // Sort by score descending (highest relevance first)
+        scoredItems.sort((a, b) => b.score - a.score);
+
+        renderFiles(scoredItems.map(item => item.file));
     }
 
     function toggleBookmark(e, fileId) {
@@ -416,7 +462,6 @@
 
         localStorage.setItem('sp_book', JSON.stringify(bookmarks));
         
-        // Re-render list & bookmark drawer if open
         handleSearch(document.getElementById('searchInput').value);
         if(document.getElementById('bPopup').classList.contains('active')) {
             renderBookmarksList();
