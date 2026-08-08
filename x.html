@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub ZIP Uploader</title>
+    <!-- Tailwind CSS for clean styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- JSZip Library to handle zip extraction in browser -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen flex items-center justify-center p-4">
+
+    <div class="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl max-w-lg w-full p-6 space-y-6">
+        <div>
+            <h1 class="text-2xl font-bold tracking-tight text-white">GitHub ZIP Extractor & Uploader</h1>
+            <p class="text-sm text-gray-400 mt-1">Upload a ZIP file to automatically decode and push its contents to your repository root.</p>
+        </div>
+
+        <div class="space-y-4">
+            <div>
+                <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">GitHub Personal Access Token (repo scope)</label>
+                <input type="password" id="ghToken" placeholder="ghp_xxxxxxxxxxxx" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white">
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Repository Owner</label>
+                    <input type="text" id="ghOwner" placeholder="username or org" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Repository Name</label>
+                    <input type="text" id="ghRepo" placeholder="my-repo" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Branch Name</label>
+                <input type="text" id="ghBranch" value="main" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white">
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Select ZIP File</label>
+                <input type="file" id="zipFile" accept=".zip" class="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 cursor-pointer">
+            </div>
+        </div>
+
+        <button onclick="handleUpload()" id="uploadBtn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2.5 rounded-lg transition text-sm shadow-lg">
+            Decode & Upload to Root
+        </button>
+
+        <!-- Status Log Box -->
+        <div class="space-y-2">
+            <div class="flex justify-between items-center text-xs text-gray-400">
+                <span>Progress Logs</span>
+                <span id="progressCount">0 / 0 files</span>
+            </div>
+            <div id="logBox" class="bg-gray-900 border border-gray-700 rounded-lg p-3 h-40 overflow-y-auto font-mono text-xs text-gray-300 space-y-1">
+                <span class="text-gray-500">Awaiting action...</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const logBox = document.getElementById('logBox');
+            const colorClass = type === 'error' ? 'text-red-400' : type === 'success' ? 'text-green-400' : 'text-gray-300';
+            logBox.innerHTML += `<div class="${colorClass}">[${new Date().toLocaleTimeString()}] ${message}</div>`;
+            logBox.scrollTop = logBox.scrollHeight;
+        }
+
+        async function handleUpload() {
+            const token = document.getElementById('ghToken').value.trim();
+            const owner = document.getElementById('ghOwner').value.trim();
+            const repo = document.getElementById('ghRepo').value.trim();
+            const branch = document.getElementById('ghBranch').value.trim() || 'main';
+            const fileInput = document.getElementById('zipFile').files[0];
+
+            if (!token || !owner || !repo || !fileInput) {
+                alert('Please fill in all fields and select a ZIP file.');
+                return;
+            }
+
+            const btn = document.getElementById('uploadBtn');
+            btn.disabled = true;
+            btn.classList.add('opacity-50', 'cursor-not-allowed');
+            document.getElementById('logBox.innerHTML = ""');
+
+            try {
+                log('Reading ZIP file in memory...');
+                const zip = new JSZip();
+                const zipContent = await zip.loadAsync(fileInput);
+
+                // Filter out directories, retain only files
+                const filePaths = [];
+                zipContent.forEach((relativePath, zipEntry) => {
+                    if (!zipEntry.dir) {
+                        filePaths.push({ relativePath, zipEntry });
+                    }
+                });
+
+                const totalFiles = filePaths.length;
+                document.getElementById('progressCount').innerText = `0 / ${totalFiles} files`;
+                log(`Found ${totalFiles} files inside ZIP. Starting upload to root...`);
+
+                let completed = 0;
+
+                for (let item of filePaths) {
+                    const cleanPath = item.relativePath; // Keeps directory structure or flattens depending on zip structure. Maps straight to root relative path.
+                    
+                    try {
+                        // Read file content as Base64 (required by GitHub contents API)
+                        const contentBase64 = await item.zipEntry.async('base64');
+
+                        // Check if file already exists in repo (to get its SHA if updating)
+                        let fileSha = null;
+                        const checkResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${cleanPath}?ref=${branch}`, {
+                            headers: { 'Authorization': `token ${token}` }
+                        });
+
+                        if (checkResponse.ok) {
+                            const fileData = await checkResponse.json();
+                            fileSha = fileData.sha;
+                        }
+
+                        // Upload/Create or Update file via GitHub API
+                        const bodyData = {
+                            message: `Add/Update ${cleanPath} via web uploader`,
+                            content: contentBase64,
+                            branch: branch
+                        };
+                        if (fileSha) bodyData.sha = fileSha;
+
+                        const uploadResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${cleanPath}`, {
+                            method: 'PUT',
+                            headers: {
+                                'Authorization': `token ${token}`,
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(bodyData)
+                        });
+
+                        if (!uploadResponse.ok) {
+                            const errJson = await uploadResponse.json();
+                            throw new Error(errJson.message || 'Failed to upload');
+                        }
+
+                        completed++;
+                        document.getElementById('progressCount').innerText = `${completed} / ${totalFiles} files`;
+                        log(`Uploaded: ${cleanPath}`, 'success');
+
+                    } catch (err) {
+                        log(`Failed (${cleanPath}): ${err.message}`, 'error');
+                    }
+                }
+
+                log('All operations completed!', 'success');
+
+            } catch (err) {
+                log(`Critical Error: ${err.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+        }
+    </script>
+</body>
+</html>
