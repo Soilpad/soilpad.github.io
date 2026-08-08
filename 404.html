@@ -91,7 +91,7 @@
         <p class="error-message">The page you are looking for might have been removed, had its name changed, or is temporarily unavailable.</p>
         
         <!-- Button to go to index.html -->
-        <a href="https://soilpad.github.io" class="home-btn">Go Back Home</a>
+        <a href="./" class="home-btn">Go Back Home</a>
         
         <div class="countdown" id="countdown-text">Redirecting to home in <span id="seconds">5</span> seconds...</div>
     </div>
@@ -107,10 +107,11 @@
             
             if (timeLeft <= 0) {
                 clearInterval(timer);
-                window.location.replace('https://soilpad.github.io/');
+                window.location.replace('./');
             }
         }, 1000);
+     
     </script>
-
+ 
 </body>
 </html>
