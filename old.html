@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notes</title>
+</head>
+<body>
+
+    <h1 onclick="window.location.replace('./');">Notes</h1>
+    <div>
+        <label for="filterCat">Filter by Category:</label>
+        <select id="filterCat" onchange="applyFilters()">
+            <option value="">All Categories</option>
+        </select>
+<br><br>
+        <label for="filterTag">Filter by Tag:</label>
+        <select id="filterTag" onchange="applyFilters()">
+            <option value="">All Tags</option>
+        </select>
+    </div>
+
+    <hr>
+
+    <div id="fileArea">
+        <p>Loading files from server...</p>
+    </div>
+
+    <script>
+        const REPO = "Soilpad/1";
+        const JSON_PATH = "document/info/pdf.json";
+        let allFilesData = [];
+
+        async function fetchFilesList() {
+            const headers = { 'Accept': 'application/vnd.github+json' };
+
+            try {
+                const res = await fetch(`https://api.github.com/repos/${REPO}/contents/${JSON_PATH}`, { headers });
+                if (!res.ok) throw new Error("Failed to fetch metadata json");
+                
+                const fileData = await res.json();
+                const decodedJsonString = decodeURIComponent(escape(atob(fileData.content)));
+                allFilesData = JSON.parse(decodedJsonString);
+
+                // Sort files: Recently added on top (highest upload_time timestamp)
+                allFilesData.sort((a, b) => b.upload_time - a.upload_time);
+
+                populateFilterDropdowns();
+                renderFiles(allFilesData);
+            } catch (err) {
+                document.getElementById('fileArea').innerHTML = `<p style="color:red;">Could not load files list from GitHub repository.</p>`;
+            }
+        }
+
+        function populateFilterDropdowns() {
+            const tags = new Set();
+            const cats = new Set();
+
+            allFilesData.forEach(file => {
+                if (file.tag) tags.add(file.tag);
+                if (file.cat) cats.add(file.cat);
+            });
+
+            const tagSelect = document.getElementById('filterTag');
+            tagSelect.innerHTML = '<option value="">All Tags</option>' + Array.from(tags).map(t => `<option value="${t}">${t}</option>`).join('');
+
+            const catSelect = document.getElementById('filterCat');
+            catSelect.innerHTML = '<option value="">All Categories</option>' + Array.from(cats).map(c => `<option value="${c}">${c}</option>`).join('');
+        }
+
+        function renderFiles(items) {
+            const area = document.getElementById('fileArea');
+            if (items.length === 0) {
+                area.innerHTML = `<p>No files found.</p>`;
+                return;
+            }
+
+            let html = '<ul>';
+            items.forEach(file => {
+                html += `
+                    <li>
+                        <a href="view?i=${file.file_id}">
+                            <strong>${file.file_name}</strong>
+                        </a> 
+                        <br>
+                        <span>Category: ${file.cat || 'N/A'} | Tag: #${file.tag || 'N/A'}</span>
+                    </li>
+                    <br>
+                `;
+            });
+            html += '</ul>';
+            area.innerHTML = html;
+        }
+
+        function applyFilters() {
+            const selectedCat = document.getElementById('filterCat').value;
+            const selectedTag = document.getElementById('filterTag').value;
+
+            const filtered = allFilesData.filter(file => {
+                let matchesCat = !selectedCat || (file.cat && file.cat.toLowerCase() === selectedCat.toLowerCase());
+                let matchesTag = !selectedTag || (file.tag && file.tag.toLowerCase() === selectedTag.toLowerCase());
+                return matchesCat && matchesTag;
+            });
+
+            renderFiles(filtered);
+        }
+
+        // Initialize on page load
+        fetchFilesList();
+    </script>
+</body>
+</html>
